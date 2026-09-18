@@ -14,7 +14,7 @@
 | --- | --- |
 | **macOS（Apple 芯片 M1/M2/M3/M4）** | `LaneSpeed-x.y.z-arm64.dmg`（约 122 MB） |
 | **macOS（Intel 芯片）** | `LaneSpeed-x.y.z.dmg`（约 126 MB） |
-| macOS，想要轻量原生程序（0.4 MB） | `LaneSpeed-1.1.0-native-macOS.zip`（**注意：1.1.0 没有方向分层功能**） |
+| macOS（**仅 Apple 芯片**），想要轻量原生程序（0.4 MB） | `LaneSpeed-1.1.0-native-macOS.zip`（**注意：1.1.0 没有方向分层功能，且没有 Intel 版**） |
 | **Windows / Linux / 任何系统** | **`LaneSpeed.html`（72 KB，一个文件双击就用，推荐）** |
 
 macOS 首次打开会被系统拦（安装包没有购买 Apple 签名证书），放行方法：
