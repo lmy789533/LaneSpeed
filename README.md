@@ -6,7 +6,22 @@
 > 本仓库只放**可以直接使用的成品文件**，不含源代码。
 > 使用时全部计算都在你自己的电脑上完成，地图不会上传到任何地方。
 
-## 怎么拿到这个文件（任选一种，都不需要账号）
+## 下载
+
+**[➜ 到 Releases 页面下载](https://github.com/lmy789533/LaneSpeed/releases/latest)**
+
+| 你的系统 | 下载哪个 |
+| --- | --- |
+| **macOS（Apple 芯片 M1/M2/M3/M4）** | `LaneSpeed-x.y.z-arm64.dmg`（约 122 MB） |
+| **macOS（Intel 芯片）** | `LaneSpeed-x.y.z.dmg`（约 126 MB） |
+| macOS，想要轻量原生程序（0.4 MB） | `LaneSpeed-1.1.0-native-macOS.zip`（**注意：1.1.0 没有方向分层功能**） |
+| **Windows / Linux / 任何系统** | **`LaneSpeed.html`（72 KB，一个文件双击就用，推荐）** |
+
+macOS 首次打开会被系统拦（安装包没有购买 Apple 签名证书），放行方法：
+双击 dmg 把 LaneSpeed 拖进「应用程序」→ **右键点它 → 打开** → 再点「打开」；
+如果 macOS 15 只给一个「完成」按钮，先去 **系统设置 → 隐私与安全性** 找到 LaneSpeed 点「仍要打开」。
+
+## 怎么拿到网页版文件（任选一种，都不需要账号）
 
 **方式 1 · 浏览器直接下载（最直观）**
 打开这个仓库 → 点上面的 **`LaneSpeed.html`** → 右上角 **Download raw file**。
