@@ -6,23 +6,82 @@
 > 本仓库只放**可以直接使用的成品文件**，不含源代码。
 > 使用时全部计算都在你自己的电脑上完成，地图不会上传到任何地方。
 
+## 怎么拿到这个文件（任选一种，都不需要账号）
+
+**方式 1 · 浏览器直接下载（最直观）**
+打开这个仓库 → 点上面的 **`LaneSpeed.html`** → 右上角 **Download raw file**。
+下载完双击就能用。
+
+**方式 2 · 一条命令（不需要 git、不需要登录）**
+
+```sh
+curl -L -o LaneSpeed.html https://cdn.jsdelivr.net/gh/lmy789533/LaneSpeed@main/LaneSpeed.html
+```
+
+**方式 3 · GitHub 直链**（浏览器地址栏粘贴即可下载）
+
+```
+https://github.com/lmy789533/LaneSpeed/raw/main/LaneSpeed.html
+```
+
+**方式 4 · 下载整个仓库的 zip**（不要 git）
+
+```
+https://codeload.github.com/lmy789533/LaneSpeed/zip/refs/heads/main
+```
+
+**方式 5 · 最省事**：这个文件只有 **70 KB**，直接把 `LaneSpeed.html` 用微信 / 邮件 / U 盘发给对方就行。
+它不依赖任何其他文件，单独一个文件就能跑。
+
+**方式 6 · 用 git 拉取**（需要本机能正常访问 github.com）
+
+```sh
+git clone --depth 1 https://github.com/lmy789533/LaneSpeed.git
+# 然后双击 LaneSpeed/LaneSpeed.html
+```
+
+### 为什么 `git clone` 会要账号密码？
+
+这个仓库是**公开**的，匿名克隆本来不需要任何账号。如果被要求输入账号密码，是**本机网络或凭据环境**的问题，不是仓库设了权限。常见原因和解决办法：
+
+1. **网络中间设备拦截**：有些公司网络 / 代理会对 github.com 返回 401，git 收到后就弹出登录框。
+   先确认真实报错（不弹框）：
+
+   ```sh
+   GIT_TERMINAL_PROMPT=0 git clone --depth 1 https://github.com/lmy789533/LaneSpeed.git
+   ```
+
+   如果报 `Couldn't connect` / `HTTP2 framing layer` / `Empty reply from server`，就是网络不通，
+   **请直接用上面的方式 1–5**，它们不需要 git。
+
+2. **本机存了旧的 GitHub 账号密码**（换过账号、改过密码后最常见）。
+   macOS 清除：
+
+   ```sh
+   printf "protocol=https\nhost=github.com\n\n" | git credential-osxkeychain erase
+   ```
+
+   Windows：控制面板 → 凭据管理器 → Windows 凭据 → 删除 `git:https://github.com`。
+
+3. **git 版本或代理问题**，可以试：
+
+   ```sh
+   git -c http.version=HTTP/1.1 -c http.lowSpeedLimit=0 -c http.lowSpeedTime=999999 clone --depth 1 \
+     https://github.com/lmy789533/LaneSpeed.git
+   ```
+
+4. **就是访问不了 github.com**：用方式 2 的 CDN 地址（`cdn.jsdelivr.net` 在国内一般可直连），
+   或者让别人把这个 70 KB 的文件直接发给你。
+
 ## 怎么用（30 秒）
 
-1. 点上面的 **`LaneSpeed.html`** → 右上角 **Download raw file**（下载原始文件）。
-   - 想连模板一起拿：下载 **`LaneSpeed-web.zip`** 解压即可，效果一样。
-2. 双击下载下来的 `LaneSpeed.html`，用浏览器打开（Chrome / Edge 最好，Firefox、Safari 也可以）。
+1. 用上面的方式拿到 **`LaneSpeed.html`**（只有一个文件）。
+2. **双击它**，用浏览器打开（Chrome / Edge 最好，Firefox、Safari 也可以）。
 3. 点「打开地图…」选你的 `lanelet2_map.osm`（也可以直接把文件拖进窗口）。
 4. 左侧填速度 → 点「应用」→ 点「导出副本…」另存为新文件。
 
 **原始地图永远不会被覆盖**：程序只读原文件，导出时必须另存为新文件。
 保存时如果用 Chrome/Edge，会弹出「另存为」让你选目录；用其他浏览器则会落到"下载"文件夹。
-
-也可以用 git 拉下来：
-
-```sh
-git clone https://github.com/lmy789533/LaneSpeed.git
-# 然后双击 LaneSpeed/LaneSpeed.html
-```
 
 ## 这个工具能做什么
 
