@@ -18,6 +18,9 @@
 curl -L -o LaneSpeed.html https://cdn.jsdelivr.net/gh/lmy789533/LaneSpeed@main/LaneSpeed.html
 ```
 
+> 上面的 CDN 链接可能有几小时缓存。要确保拿到某个确定版本，用带版本号的地址
+> （`v2.0.1` 这种版本一旦发布就不会变）：`https://cdn.jsdelivr.net/gh/lmy789533/LaneSpeed@v2.0.1/LaneSpeed.html`
+
 **方式 3 · GitHub 直链**（浏览器地址栏粘贴即可下载）
 
 ```
