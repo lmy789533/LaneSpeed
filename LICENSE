@@ -1,0 +1,51 @@
+LaneSpeed 许可协议（专有软件）
+Copyright (c) 2026. All rights reserved.
+
+本软件及其源代码为专有软件。未经版权持有人书面许可，不得复制、修改、再分发、
+转售或以本软件为基础创作衍生作品。
+
+一、允许
+1. 你可以免费下载、安装并使用本软件处理你自己的 Lanelet2 地图文件。
+2. 你可以在你所在的单位内部使用本软件，包括用于商业项目。
+3. 你可以把本软件的可执行安装包原样转发给需要使用它的同事或合作方，前提是
+   不收取费用、不修改安装包内容，并保留本许可协议。
+
+二、禁止
+1. 不得公开、上传或向第三方提供本软件的源代码及其任何部分。
+2. 不得修改、反编译、反汇编本软件，或绕过其中的任何功能限制（法律明确允许
+   的情形除外）。
+3. 不得把本软件或其修改版作为商品出售、出租，或用于提供收费服务。
+4. 不得移除或修改本软件中的版权声明和许可声明。
+
+三、免责声明
+本软件按“现状”提供，不附带任何明示或默示的担保，包括但不限于对适销性、特定
+用途适用性和不侵权的担保。因使用本软件导致的任何直接或间接损失（包括但不限于
+地图数据损坏、车辆行为异常、人身伤害或财产损失），版权持有人不承担责任。
+
+本软件只修改地图文件中的 speed_limit 标签，不会改动其他内容。导出的地图在用于
+实车之前，必须由使用者在 Autoware 测试环境和实车流程中自行验证。不得把本软件的
+读写测试结果当作实车安全验证。
+
+四、终止
+违反上述任一条款，本许可自动终止，你应立即停止使用并删除本软件的全部副本。
+
+---
+
+LaneSpeed License (Proprietary)
+Copyright (c) 2026. All rights reserved.
+
+This software and its source code are proprietary. No part of it may be copied, modified,
+redistributed, resold, or used to create derivative works without prior written permission
+from the copyright holder.
+
+Permitted: downloading and using the software on your own Lanelet2 map files, use inside your
+organisation including commercial projects, and passing the unmodified installer on to
+colleagues who need it, free of charge and with this licence included.
+
+Not permitted: publishing or sharing the source code, modifying or reverse engineering the
+software, selling or renting it, or removing this notice.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. The copyright holder is not
+liable for any damages arising from its use. The software only edits the speed_limit tag;
+exported maps must be validated by the user in Autoware and on the vehicle before operational
+use. Passing this project's tests is not a vehicle-safety validation.

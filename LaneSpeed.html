@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<!--
+  LaneSpeed 2.0.0 · Lanelet2 / Autoware 地图限速编辑器
+  单个文件、离线运行：所有处理都在本机完成，不会联网、不会上传地图。
+  Copyright (c) 2026. All rights reserved. 专有软件：可免费使用，禁止再分发或修改。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaneSpeed · Lanelet2 限速编辑器</title>
+<style>
+:root {
+  --bg: #0b0f14;
+  --panel: #131a22;
+  --panel-2: #18212b;
+  --line: #253140;
+  --text: #e8eef5;
+  --muted: #93a2b3;
+  --accent: #3d9df6;
+  --straight: #14a3a3;
+  --left: #f59e2b;
+  --right: #756df0;
+  --unmarked: #7a8fa3;
+  --changed: #ffcc00;
+  --pink: #ff2d55;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+#app { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+/* top bar */
+.topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding: 12px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { width: 30px; height: 30px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; }
+.logo .turn { stroke: var(--left); }
+.brand h1 { margin: 0; font-size: 18px; letter-spacing: .2px; }
+.subtitle { margin: 0; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+.fileinfo { flex: 1; min-width: 0; }
+.filename { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summary { font-size: 11px; color: var(--muted); }
+.topactions { display: flex; gap: 8px; }
+
+/* buttons and inputs */
+.btn {
+  padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 12.5px;
+}
+.btn:hover:not(:disabled) { border-color: #35485c; background: #1d2833; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #04121f; font-weight: 600; }
+.btn.primary:disabled { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+.btn.small { padding: 4px 9px; font-size: 12px; }
+input[type=text], input[type=search], select {
+  padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: #0f151d; color: var(--text); font: inherit; font-size: 12.5px;
+}
+input:disabled, select:disabled { opacity: .5; }
+input[type=checkbox] { accent-color: var(--accent); }
+
+/* layout */
+.body { flex: 1; display: flex; min-height: 0; }
+.sidebar {
+  width: 300px; flex: none; overflow-y: auto; padding: 14px;
+  background: var(--panel); border-right: 1px solid var(--line);
+}
+.mainpanel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.spacer { flex: 1; }
+
+/* sidebar panels */
+.panel { margin-bottom: 18px; }
+.panel h2 { margin: 0 0 6px; font-size: 14.5px; }
+.hint { margin: 4px 0; font-size: 11.5px; color: var(--muted); }
+.hint code { background: #0f151d; padding: 0 3px; border-radius: 3px; }
+.stats {
+  margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: #0f151d;
+  font: 11.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
+  white-space: pre-wrap;
+}
+.changed { margin: 0 0 4px; font-weight: 600; font-size: 13px; }
+.speedgroup { margin: 8px 0 12px; }
+.speedhead { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+.speedhead .count { margin-left: auto; font-size: 11px; color: var(--muted); }
+.speedrow { display: flex; align-items: center; gap: 6px; }
+.speedrow input[type=text] { flex: 1; min-width: 60px; text-align: right; }
+.unit { font-size: 11px; color: var(--muted); }
+.check { display: flex; align-items: flex-start; gap: 7px; margin: 6px 0; font-size: 12px; }
+.buttonrow { display: flex; gap: 8px; margin-top: 8px; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.swatch.straight { background: var(--straight); }
+.swatch.left { background: var(--left); }
+.swatch.right { background: var(--right); }
+.swatch.unmarked { background: var(--unmarked); }
+.swatch.changed { background: var(--changed); }
+
+/* map area */
+.toolbar {
+  display: flex; align-items: center; gap: 14px; padding: 9px 12px;
+  border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted);
+}
+.legend { display: inline-flex; align-items: center; gap: 5px; }
+.canvaswrap { position: relative; flex: 1; min-height: 180px; background: #111821; }
+#mapCanvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+.dropzone {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  text-align: center; color: var(--muted); pointer-events: none;
+}
+.dropzone b { font-size: 20px; color: var(--text); display: block; margin-bottom: 6px; }
+.dropzone.active { outline: 3px solid var(--accent); outline-offset: -3px; }
+.hintrow, .filterrow {
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px;
+  border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted);
+}
+.hoverreadout { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filterrow { border-top: none; padding-top: 4px; color: var(--text); font-size: 12.5px; }
+#search { width: 190px; }
+
+/* table */
+.tablerow { height: 190px; overflow: auto; border-top: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { text-align: left; padding: 5px 10px; border-bottom: 1px solid #1b242e; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; z-index: 1; }
+tbody tr { cursor: pointer; }
+tbody tr:nth-child(even) { background: #101821; }
+tbody tr.selected { background: #1d3350; }
+td.id, td.num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+td.layer.forward { color: var(--muted); }
+td.layer.reversed { color: var(--pink); }
+td.changed { color: var(--accent); font-weight: 600; }
+
+.statusbar { padding: 8px 14px; border-top: 1px solid var(--line); background: var(--panel); font-size: 11.5px; color: var(--muted); }
+.statusbar.error span { color: #ff8080; }
+
+/* maximised map */
+#app.mapless .sidebar, #app.mapless .hintrow, #app.mapless .filterrow, #app.mapless .tablerow { display: none; }
+
+/* modal */
+.modal { position: fixed; inset: 0; background: rgba(4, 8, 12, .68); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.modal[hidden] { display: none; }
+.modalbox {
+  width: min(680px, 92vw); max-height: 82vh; overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px;
+}
+.modalbox h3 { margin: 0 0 10px; font-size: 15px; }
+.modalbox pre { margin: 0 0 14px; white-space: pre-wrap; font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+.modalactions { display: flex; gap: 8px; justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  .sidebar { width: 240px; }
+  .topbar { flex-wrap: wrap; }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M13 39c1-9 2-18 2-30M35 39c-1-9-2-18-2-30M23 39V28m0-7V10"/>
+        <path class="turn" d="M23 28c0-7 3-11 10-13"/>
+      </svg>
+      <div>
+        <h1>LaneSpeed</h1>
+        <p class="subtitle">LANELET2 限速编辑器 · v2.0.0</p>
+      </div>
+    </div>
+    <div class="fileinfo">
+      <div id="filename" class="filename">尚未打开地图</div>
+      <div id="summary" class="summary">离线处理 · 原图保护 · 数据不上传</div>
+    </div>
+    <div class="topactions">
+      <button id="openButton" class="btn" type="button">打开地图…</button>
+      <button id="undoButton" class="btn" type="button" disabled>撤销</button>
+      <button id="exportButton" class="btn primary" type="button" disabled>导出副本…</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar" id="sidebar">
+      <section class="panel">
+        <h2>按转向批量改速</h2>
+        <p class="hint">依据 <code>turn_direction</code> 属性分组 · 速度单位 km/h</p>
+        <div class="speedgroup" data-direction="straight">
+          <div class="speedhead"><span class="swatch straight"></span><b>直行</b><span class="count" id="countStraight">0 条</span></div>
+          <div class="speedrow"><input type="text" inputmode="decimal" id="speedStraight" placeholder="输入限速" aria-label="直行限速"><span class="unit">km/h</span><button class="btn small" data-apply="straight" type="button">应用</button></div>
+        </div>
+        <div class="speedgroup" data-direction="left">
+          <div class="speedhead"><span class="swatch left"></span><b>左转</b><span class="count" id="countLeft">0 条</span></div>
+          <div class="speedrow"><input type="text" inputmode="decimal" id="speedLeft" placeholder="输入限速" aria-label="左转限速"><span class="unit">km/h</span><button class="btn small" data-apply="left" type="button">应用</button></div>
+        </div>
+        <div class="speedgroup" data-direction="right">
+          <div class="speedhead"><span class="swatch right"></span><b>右转</b><span class="count" id="countRight">0 条</span></div>
+          <div class="speedrow"><input type="text" inputmode="decimal" id="speedRight" placeholder="输入限速" aria-label="右转限速"><span class="unit">km/h</span><button class="btn small" data-apply="right" type="button">应用</button></div>
+        </div>
+        <label class="check"><input type="checkbox" id="includeUnmarked"> 将未标注车道一起按直行改速</label>
+        <p class="hint" id="unmarkedLabel">未标注：0 条</p>
+        <p class="hint">默认不改未标注车道；确认它们属于直行后再勾选，转向属性不会被改写。</p>
+      </section>
+
+      <section class="panel">
+        <h2>方向分层</h2>
+        <p class="hint">单车道双向行驶的地图里，同一条路上有两条车道：一条正向、一条反向。反向层的左右边界与行驶方向对调，实际行驶方向与存储顺序相反。</p>
+        <pre class="stats" id="layerSummary">打开地图后显示方向分层统计</pre>
+        <select id="layerPopup" aria-label="地图显示哪一层">
+          <option value="both">两层同时显示</option>
+          <option value="forward">只看正向层</option>
+          <option value="reversed">只看反向层</option>
+        </select>
+        <label class="check"><input type="checkbox" id="separateLayers"> 反向层错开显示（两层重合处也看得清）</label>
+        <label class="check"><input type="checkbox" id="layerOnly"> 批量改速只作用于当前图层</label>
+        <button class="btn small" id="layerDataButton" type="button" disabled>反向层数据…</button>
+      </section>
+
+      <section class="panel">
+        <h2>单条车道</h2>
+        <p class="hint" id="selectedLabel">在地图或列表中选择一条车道</p>
+        <div class="speedrow"><input type="text" inputmode="decimal" id="selectedSpeed" placeholder="选择后输入" aria-label="选中车道限速" disabled><span class="unit">km/h</span><button class="btn small" id="applySingle" type="button" disabled>应用</button></div>
+        <button class="btn small" id="focusSelected" type="button" disabled>定位选中车道</button>
+      </section>
+
+      <section class="panel">
+        <h2>地图显示</h2>
+        <label class="check"><input type="checkbox" id="toggleSpeed" checked> 显示限速数值</label>
+        <label class="check"><input type="checkbox" id="toggleDirection" checked> 显示行驶方向</label>
+        <label class="check"><input type="checkbox" id="toggleFill" checked> 车道填充颜色</label>
+        <label class="check"><input type="checkbox" id="toggleGrid" checked> 参考网格与比例尺</label>
+        <label class="check"><input type="checkbox" id="toggleOnlyChanged"> 只看已修改车道</label>
+        <div class="buttonrow">
+          <button class="btn small" id="reviewButton" type="button" disabled>查看修改结果</button>
+          <button class="btn small" id="reviewNextButton" type="button" disabled>逐条核对</button>
+        </div>
+        <p class="hint">「查看修改结果」只保留已修改车道并放大到数值可读；「逐条核对」按顺序逐条放大。</p>
+      </section>
+
+      <section class="panel">
+        <p class="changed" id="changedLabel">已修改 0 条车道</p>
+        <p class="hint" id="coordinateLabel">支持 local_x / local_y 与经纬度坐标</p>
+        <p class="hint">只修改 <code>speed_limit</code>；导出为新文件，原图不会被覆盖。上线前请在 Autoware 中验证。</p>
+      </section>
+    </aside>
+
+    <main class="mainpanel">
+      <div class="toolbar">
+        <span class="legend"><span class="swatch straight"></span>直行</span>
+        <span class="legend"><span class="swatch left"></span>左转</span>
+        <span class="legend"><span class="swatch right"></span>右转</span>
+        <span class="legend"><span class="swatch unmarked"></span>未标注 / 其他</span>
+        <span class="legend"><span class="swatch changed"></span>已修改</span>
+        <span class="spacer"></span>
+        <button class="btn small" id="fitButton" type="button">显示全部</button>
+        <button class="btn small" id="zoomOutButton" type="button" aria-label="缩小">−</button>
+        <button class="btn small" id="zoomInButton" type="button" aria-label="放大">+</button>
+        <button class="btn small" id="maxButton" type="button">地图最大化</button>
+      </div>
+
+      <div class="canvaswrap" id="canvasWrap">
+        <canvas id="mapCanvas"></canvas>
+        <div class="dropzone" id="dropzone"><div><b>拖入 Lanelet2 地图</b><p>或点击「打开地图」选择 .osm 文件<br>所有处理均在本机完成，无需联网</p></div></div>
+      </div>
+
+      <div class="hintrow">
+        <span class="hint">滚轮 / 双指缩放 · 拖动平移 · 点击选择 · 悬停查看</span>
+        <span class="spacer"></span>
+        <span class="hint hoverreadout" id="hoverLabel">把鼠标移到车道上可查看该车道的限速与方向</span>
+      </div>
+
+      <div class="filterrow">
+        <b>车道列表</b>
+        <select id="category" aria-label="车道类别筛选">
+          <option value="all">全部车道</option>
+          <option value="straight">直行</option>
+          <option value="left">左转</option>
+          <option value="right">右转</option>
+          <option value="unmarked">未标注 / 其他</option>
+          <option value="changed">已修改</option>
+          <option value="forward">正向层</option>
+          <option value="reversed">反向层</option>
+        </select>
+        <input type="search" id="search" placeholder="搜索 Lanelet ID" aria-label="搜索 Lanelet ID">
+        <span class="spacer"></span>
+        <span class="hint" id="tableCount">0 条</span>
+      </div>
+
+      <div class="tablerow" id="tableWrap">
+        <table id="laneTable">
+          <thead>
+            <tr><th>Lanelet ID</th><th>图层</th><th>转向属性</th><th>原限速</th><th>当前限速</th><th>状态</th></tr>
+          </thead>
+          <tbody id="laneBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <footer class="statusbar"><span id="status">打开或拖入 .osm 地图开始编辑。</span></footer>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modalbox" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">提示</h3>
+    <pre id="modalBody"></pre>
+    <div class="modalactions" id="modalActions"></div>
+  </div>
+</div>
+
+<script>
+(()=>{var Ge=Object.defineProperty;var Ke=(n,e,t)=>e in n?Ge(n,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):n[e]=t;var B=(n,e,t)=>Ke(n,typeof e!="symbol"?e+"":e,t);var S=class extends Error{constructor(e){super(e),this.name="MapError"}},he=new Set(["node","way","relation","tag","nd","member"]),ce=new Set(["relation","tag"]);function P(n){return n===32||n===9||n===10||n===13}function le(n){return n===61||n===60||n===62||n===47}function De(n,e,t){if(e+t.length>n.length)return!1;for(let i=0;i<t.length;i+=1){let s=n.charCodeAt(e+i);s>=97&&s<=122&&(s-=32);let r=t.charCodeAt(i);if(r>=97&&r<=122&&(r-=32),s!==r)return!1}return!0}function de(n){let e=n.indexOf("<!");for(;e!==-1;){if(De(n,e,"<!doctype")||De(n,e,"<!entity"))return!0;e=n.indexOf("<!",e+2)}return!1}var Je={amp:"&",lt:"<",gt:">",quot:'"',apos:"'"};function $e(n){return n.includes("&")?n.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);/g,(e,t)=>{if(t[0]!=="#")return Je[t]??e;let i=t[1]==="x"||t[1]==="X"?Number.parseInt(t.slice(2),16):Number.parseInt(t.slice(1),10);if(!Number.isFinite(i)||i<0||i>1114111)return e;try{return String.fromCodePoint(i)}catch{return e}}):n}function Qe(n,e,t){let i=Object.create(null),s=e;for(;s<t&&!P(n.charCodeAt(s))&&!le(n.charCodeAt(s));)s+=1;for(;s<t;){for(;s<t&&P(n.charCodeAt(s));)s+=1;if(s>=t)break;let r=n.charCodeAt(s);if(r===47||r===62)break;let o=s;for(;s<t&&!P(n.charCodeAt(s))&&!le(n.charCodeAt(s));)s+=1;if(s===o){s+=1;continue}let l=n.slice(o,s),a=s;for(;a<t&&P(n.charCodeAt(a));)a+=1;if(a>=t||n.charCodeAt(a)!==61)continue;for(a+=1;a<t&&P(n.charCodeAt(a));)a+=1;if(a>=t)break;let c=n.charCodeAt(a);if(c!==34&&c!==39)continue;a+=1;let u=a;for(;a<t&&n.charCodeAt(a)!==c;)a+=1;if(a>=t)break;i[l]={value:$e(n.slice(u,a)),start:u,end:a},s=a+1}return i}function Z(n,e,t){let i=n.length,s={name:"",closing:!1,empty:!1,start:0,end:0,attributes:null},r=0;for(;r<i;){let o=n.indexOf("<",r);if(o===-1)break;let l=null;if(n.startsWith("<!--",o)?l="-->":n.startsWith("<![CDATA[",o)?l="]]>":n.startsWith("<?",o)&&(l="?>"),l){let g=n.indexOf(l,o);if(g===-1)throw new S("XML \u6CE8\u91CA\u6216\u58F0\u660E\u4E0D\u5B8C\u6574\u3002");r=g+l.length;continue}let a=o+1,c=0;for(;a<i;){let g=n.charCodeAt(a);if(c!==0)g===c&&(c=0);else if(g===34||g===39)c=g;else if(g===62)break;a+=1}if(a>=i)throw new S("XML \u6807\u7B7E\u4E0D\u5B8C\u6574\u3002");let u=n.charCodeAt(o+1)===47,f=o+(u?2:1),y=f;for(;f<a;){let g=n.charCodeAt(f);if(P(g)||le(g))break;f+=1}s.name=n.slice(y,f),s.closing=u,s.empty=!u&&a>o+1&&n.charCodeAt(a-1)===47,s.start=o,s.end=a,s.attributes=f>y&&t.has(s.name)?Qe(n,y,a):null,e(s),r=a+1}}function ue(n,e){let t=1;for(let i=0;i<e&&i<n.length;i+=1)n.charCodeAt(i)===10&&(t+=1);return t}var x=Object.freeze({FORWARD:"forward",REVERSED:"reversed",UNKNOWN:"unknown"});function ee(n,e){return Math.hypot(n.x-e.x,n.y-e.y)}function Y(n,e){if(n.length<2||e<2)return n.slice();let t=[0];for(let o=1;o<n.length;o+=1)t.push(t[o-1]+ee(n[o-1],n[o]));let i=t[t.length-1];if(!(i>0))return new Array(e).fill(n[0]);let s=new Array(e),r=1;for(let o=0;o<e;o+=1){let l=i*o/(e-1);for(;r<n.length-1&&t[r]<l;)r+=1;let a=t[r]-t[r-1],c=a>0?(l-t[r-1])/a:0,u=n[r-1],f=n[r];s[o]={x:u.x+(f.x-u.x)*c,y:u.y+(f.y-u.y)*c}}return s}function W(n){let e=0;for(let t=1;t<n.length;t+=1)e+=ee(n[t-1],n[t]);return e}function fe(n,e,t=16){if(n.length===0)return e.slice();if(e.length===0)return n.slice();let i=Y(n,t),s=Y(e,t);return i.map((r,o)=>({x:(r.x+s[o].x)/2,y:(r.y+s[o].y)/2}))}function te(n){if(n.length<3)return 0;let e=0,t=n.length-1;for(let i=0;i<n.length;i+=1)e+=n[t].x*n[i].y-n[i].x*n[t].y,t=i;return e/2}function ge(n){if(n.length===0)return{x:0,y:0};let e=0,t=0;for(let i of n)e+=i.x,t+=i.y;return{x:e/n.length,y:t/n.length}}function me(n,e){if(n.length<3)return!1;let t=!1,i=n.length-1;for(let s=0;s<n.length;s+=1){let r=n[s],o=n[i];r.y>e.y!=o.y>e.y&&e.x<(o.x-r.x)*(e.y-r.y)/(o.y-r.y)+r.x&&(t=!t),i=s}return t}function pe(n,e){if(n.length===0)return null;if(n.length<2||e.length<3)return n[Math.floor(n.length/2)];let t=n.concat([ge(e)]),i=null,s=-1,r=n[Math.floor(n.length/2)],o=-1;for(let l of t){let a=1/0;for(let c of e){let u=ee(c,l);u<a&&(a=u)}a>o&&(o=a,r=l),a>s&&me(e,l)&&(s=a,i=l)}return i??r}function ye(n,e,t){let i=W(e);return!(i>.001)||n.length<3?t:Math.abs(te(n))/i}function we(n,e){if(n.length<3||!(e.width>0)||!(e.height>0))return x.UNKNOWN;let t=te(n);return Math.abs(t)<=.05*e.width*e.height?x.UNKNOWN:t<0?x.FORWARD:x.REVERSED}function ne(n){if(!Number.isFinite(n)||n<=0)return 1;let t=10**Math.floor(Math.log10(n)),i=n/t;return(i<=1?1:i<=2?2:i<=5?5:10)*t}function be(n,e){if(n.length<2)return null;let t=0;for(let r=1;r<n.length;r+=1){let o=n[r-1],l=n[r],a=Math.hypot(l.x-o.x,l.y-o.y);if(!(a<=0)){if(t+a>=e){let c=(e-t)/a;return{point:{x:o.x+(l.x-o.x)*c,y:o.y+(l.y-o.y)*c},direction:{x:l.x-o.x,y:l.y-o.y}}}t+=a}}let i=n[n.length-2],s=n[n.length-1];return{point:s,direction:{x:s.x-i.x,y:s.y-i.y}}}function xe(n){if(n.length===0)return null;let e=1/0,t=1/0,i=-1/0,s=-1/0;for(let r of n)r.x<e&&(e=r.x),r.y<t&&(t=r.y),r.x>i&&(i=r.x),r.y>s&&(s=r.y);return{minX:e,minY:t,maxX:i,maxY:s,width:i-e,height:s-t}}function ve(n,e){return n?e?{minX:Math.min(n.minX,e.minX),minY:Math.min(n.minY,e.minY),maxX:Math.max(n.maxX,e.maxX),maxY:Math.max(n.maxY,e.maxY),width:Math.max(n.maxX,e.maxX)-Math.min(n.minX,e.minX),height:Math.max(n.maxY,e.maxY)-Math.min(n.minY,e.minY)}:n:e}var Ze=Object.freeze(["straight","left","right","unmarked"]);function ke(n){let e=String(n??"").trim().toLowerCase();return e==="straight"||e==="left"||e==="right"?e:"unmarked"}function F(n){switch(n){case"straight":return"\u76F4\u884C";case"left":return"\u5DE6\u8F6C";case"right":return"\u53F3\u8F6C";default:return"\u672A\u6807\u6CE8 / \u5176\u4ED6"}}function N(n){switch(n){case x.FORWARD:return"\u6B63\u5411";case x.REVERSED:return"\u53CD\u5411";default:return"\u65E0\u6CD5\u5224\u5B9A"}}var C=Object.freeze({BOTH:"both",FORWARD:"forward",REVERSED:"reversed"});function z(n,e){return n===C.BOTH?!0:n===C.FORWARD?e===x.FORWARD:n===C.REVERSED?e===x.REVERSED:!0}var ie=6378137;function Te(n,e){if(n===void 0||e===void 0)return null;let t=Number(n),i=Number(e);return!Number.isFinite(t)||!Number.isFinite(i)?null:{x:t,y:i}}function Re(n){if(de(n))throw new S("\u4E3A\u4FDD\u8BC1\u672C\u5730\u6587\u4EF6\u5B89\u5168\uFF0C\u4E0D\u652F\u6301\u5305\u542B DTD / ENTITY \u7684 XML\u3002");let e=new Map,t=new Map,i=[],s={node:new Set,way:new Set,relation:new Set},r=[],o=!1,l=null,a=c=>{if(c)if(c.kind==="node"){let u=Te(c.tags.get("local_x"),c.tags.get("local_y")),f=Te(c.lon,c.lat);e.set(c.id,{local:u,geo:f})}else if(c.kind==="way")t.set(c.id,c.refs);else{if(c.tags.get("type")==="lanelet"&&c.speedTags>1)throw new S(`Lanelet ${c.id} \u6709\u591A\u4E2A speed_limit \u6807\u7B7E\uFF0C\u8BF7\u5148\u4FEE\u590D\u5730\u56FE\u3002`);i.push({id:c.id,tags:c.tags,members:c.members})}};if(Z(n,c=>{if(c.closing){if(r.length===0)throw new S("XML \u6807\u7B7E\u4E0D\u5339\u914D\u3002");let g=r.pop();if(g!==c.name)throw new S(`XML \u683C\u5F0F\u9519\u8BEF\uFF0C\u7B2C ${ue(n,c.start)} \u884C\uFF1A<${g}> \u4E0E </${c.name}> \u4E0D\u5339\u914D\u3002`);(g==="node"||g==="way"||g==="relation")&&(a(l),l=null);return}let u=c.attributes??{},f=r.length,y=c.name==="node"||c.name==="way"||c.name==="relation";if(f===0){if(c.name!=="osm")throw new S("\u6587\u4EF6\u4E0D\u662F OSM \u5730\u56FE\uFF1A\u6839\u5143\u7D20\u5E94\u4E3A <osm>\u3002");o=!0}else if(f===1&&y){let g=u.id?.value;if(!g)throw new S(`\u53D1\u73B0\u6CA1\u6709 ID \u7684 ${c.name}\u3002`);if(s[c.name].has(g))throw new S(`\u53D1\u73B0\u91CD\u590D\u7684 ${c.name} ID\uFF1A${g}\u3002`);s[c.name].add(g),l={kind:c.name,id:g,lat:u.lat?.value,lon:u.lon?.value,tags:new Map,refs:[],members:[],speedTags:0}}else if(f===2&&l)if(c.name==="tag"){let g=u.k?.value,m=u.v?.value;g!==void 0&&m!==void 0&&(l.tags.set(g,m),g==="speed_limit"&&(l.speedTags+=1))}else if(c.name==="nd"){let g=u.ref?.value;g!==void 0&&l.refs.push(g)}else c.name==="member"&&l.members.push({type:u.type?.value??"",ref:u.ref?.value??"",role:u.role?.value??""});c.empty?f===1&&y&&(a(l),l=null):r.push(c.name)},he),r.length>0)throw new S("XML \u683C\u5F0F\u9519\u8BEF\uFF1A\u6709\u672A\u95ED\u5408\u7684\u6807\u7B7E\u3002");if(!o)throw new S("\u6587\u4EF6\u4E0D\u662F OSM \u5730\u56FE\uFF1A\u6839\u5143\u7D20\u5E94\u4E3A <osm>\u3002");return{nodes:e,ways:t,relations:i,rootSeen:o}}function U(n){let e=String(n??"").trim();if(!/^[0-9]+(?:\.[0-9]{1,3})?$/.test(e))throw new S("\u8BF7\u8F93\u5165\u5927\u4E8E 0\u3001\u4E14\u4E0D\u8D85\u8FC7 300 \u7684\u901F\u5EA6\uFF08km/h\uFF09\uFF0C\u6700\u591A\u4FDD\u7559 3 \u4F4D\u5C0F\u6570\u3002");let t=Number(e);if(!Number.isFinite(t)||t<=0||t>300)throw new S("\u8BF7\u8F93\u5165\u5927\u4E8E 0\u3001\u4E14\u4E0D\u8D85\u8FC7 300 \u7684\u901F\u5EA6\uFF08km/h\uFF09\uFF0C\u6700\u591A\u4FDD\u7559 3 \u4F4D\u5C0F\u6570\u3002");let[i,s=""]=e.split("."),r=i.replace(/^0+(?=\d)/,""),o=s.replace(/0+$/,"");return o?`${r}.${o}`:r}var X=class n{constructor(e){this.source=e;let{nodes:t,ways:i,relations:s}=Re(e),r=s.filter(m=>m.tags.get("type")==="lanelet");if(r.length===0)throw new S("\u6587\u4EF6\u91CC\u6CA1\u6709 type=lanelet \u7684 relation\u3002\u8BF7\u9009\u62E9 Lanelet2 \u683C\u5F0F\u7684 .osm \u6587\u4EF6\u3002");let o=[...t.values()].some(m=>m.local!==null),l=[...t.values()].find(m=>m.geo!==null)?.geo??{x:0,y:0},a=Math.PI/180,c=m=>o?m.local:m.geo?{x:(m.geo.x-l.x)*a*ie*Math.cos(l.y*a),y:(m.geo.y-l.y)*a*ie}:null,u=m=>{let b=m===void 0?void 0:i.get(m);if(!b||b.length<2)return[];let M=[];for(let k of b){let L=t.get(k);if(!L)return[];let E=c(L);if(!E)return[];M.push(E)}return M},f=(m,b)=>m.members.find(M=>M.type==="way"&&M.role===b)?.ref;this.lanes=[];let y=null,g=0;for(let m of r){let b=u(f(m,"left")),M=u(f(m,"right")),k=!1;if(b.length>0&&M.length>0){let G=b[0],K=b[b.length-1],J=M[0],Q=M[M.length-1],je=Math.hypot(G.x-J.x,G.y-J.y)+Math.hypot(K.x-Q.x,K.y-Q.y),qe=Math.hypot(G.x-Q.x,G.y-Q.y)+Math.hypot(K.x-J.x,K.y-J.y);je>qe&&(M.reverse(),k=!0)}let L=b.length>0&&M.length>0?b.concat(M.slice().reverse()):[],E=xe(L);y=ve(y,E);let O=fe(b,M);k&&(g+=1);let Le=m.tags.get("turn_direction"),Ve=m.tags.get("speed_limit");this.lanes.push({id:m.id,direction:ke(Le),originalDirection:Le??null,originalSpeed:Ve??null,polygon:L,left:b,right:M,centerline:O,labelPoint:pe(O,L),bounds:E,averageWidth:ye(L,O,E?Math.min(E.width,E.height):0),boundsDisagree:k,handedness:we(L,E),centerlineLength:W(O)})}this.bounds=y,this.nodeCount=t.size,this.wayCount=i.size,this.directionConflictCount=g,this.coordinateDescription=o?"\u672C\u5730\u5750\u6807 local_x / local_y":"\u7ECF\u7EAC\u5EA6\u6295\u5F71\uFF08\u4EC5\u7528\u4E8E\u9884\u89C8\uFF09",this.northAngle=o?et(t):[...t.values()].some(m=>m.geo)?0:null,this._pairs=null}get drawableCount(){return this.lanes.filter(e=>e.polygon.length>=4).length}static effectiveHeading(e){let t=Fe(e);return t===null?null:e.handedness===x.REVERSED?t+Math.PI:t}static travelPath(e){return e.handedness===x.REVERSED?e.centerline.slice().reverse():e.centerline}lanesIn(e){return this.lanes.filter(t=>t.handedness===e)}lanesForFilter(e){return this.lanes.filter(t=>z(e,t.handedness))}get forwardLayer(){return this.lanesIn(x.FORWARD)}get reverseLayer(){return this.lanesIn(x.REVERSED)}get undecidedLayer(){return this.lanesIn(x.UNKNOWN)}statistics(e){let t={count:0,length:0,speeds:{},turns:{},conflicts:0};for(let i of this.lanesIn(e)){t.count+=1,t.length+=i.centerlineLength;let s=i.originalSpeed??"\u672A\u8BBE\u7F6E";t.speeds[s]=(t.speeds[s]??0)+1;let r=F(i.direction);t.turns[r]=(t.turns[r]??0)+1,i.boundsDisagree&&(t.conflicts+=1)}return t}reverseLayerPairs(e=2,t=13){if(this._pairs)return this._pairs;let i=this.forwardLayer;if(i.length===0)return this._pairs=[],this._pairs;let s=Math.max(e*2,2),r=new Map,o=(c,u)=>`${c},${u}`;i.map(c=>Y(c.centerline,t)).forEach((c,u)=>{for(let f of c){let y=o(Math.floor(f.x/s),Math.floor(f.y/s)),g=r.get(y);g?g.push({laneIndex:u,point:f}):r.set(y,[{laneIndex:u,point:f}])}});let a=[];for(let c of this.reverseLayer){let u=Y(c.centerline,t),f=new Map;for(let m of u){let b=Math.floor(m.x/s),M=Math.floor(m.y/s),k=new Set;for(let L=-2;L<=2;L+=1)for(let E=-2;E<=2;E+=1)for(let O of r.get(o(b+L,M+E))??[])Math.hypot(O.point.x-m.x,O.point.y-m.y)<=e&&k.add(O.laneIndex);for(let L of k)f.set(L,(f.get(L)??0)+1)}let y=-1,g=0;for(let[m,b]of f)b>g&&(g=b,y=m);a.push({reversed:c,forward:y>=0?i[y]:null,overlap:y>=0?g/Math.max(u.length,1):0})}return this._pairs=a,a}export(e){let t=e instanceof Map?[...e.entries()]:Object.entries(e??{});if(t.length===0)return this.source;let i=new Set(this.lanes.map(a=>a.id));for(let[a]of t)if(!i.has(a))throw new S("\u4FEE\u6539\u5305\u542B\u672A\u77E5\u7684 Lanelet ID\u3002");let s=new Map;for(let[a,c]of t)s.set(a,U(c));let r=Ie(this.source,s),o=Ae(this.source,r),l=new n(o);if(l.lanes.length!==this.lanes.length||l.nodeCount!==this.nodeCount||l.wayCount!==this.wayCount||l.lanes.some((a,c)=>a.id!==this.lanes[c].id))throw new S("\u5BFC\u51FA\u5B8C\u6574\u6027\u68C0\u67E5\u5931\u8D25\uFF0C\u672A\u5199\u5165\u6587\u4EF6\u3002");for(let a of l.lanes){let c=s.get(a.id);if(c!==void 0&&a.originalSpeed!==c)throw new S(`Lanelet ${a.id} \u7684\u9650\u901F\u5199\u5165\u6821\u9A8C\u5931\u8D25\u3002`)}return o}};function Fe(n){let e=n.centerline;if(e.length<2)return null;let t=e[0],i=e[e.length-1];return Math.hypot(i.x-t.x,i.y-t.y)>.001?Math.atan2(i.y-t.y,i.x-t.x):null}function et(n){let e=[...n.values()].filter(u=>u.local&&u.geo);if(e.length<2)return null;let t=e.slice().sort((u,f)=>u.local.x-f.local.x),i=t[0],s=t[t.length-1],r=s.local.x-i.local.x,o=s.local.y-i.local.y;if(!(Math.hypot(r,o)>1))return null;let l=Math.PI/180,a=(s.geo.x-i.geo.x)*l*ie*Math.cos(i.geo.y*l),c=(s.geo.y-i.geo.y)*l*ie;return Math.hypot(a,c)>1?Math.atan2(c,a)-Math.atan2(o,r):null}function Ie(n,e){let t=[],i=new Set,s=[],r=null,o=!1,l=n.includes(`\r
+`)?`\r
+`:`
+`;if(Z(n,a=>{if(a.closing){let u=s.pop();if(u!==a.name)throw new S("XML \u6807\u7B7E\u4E0D\u5339\u914D\u3002");if(u==="relation"&&r!==null){let f=e.get(r);if(f!==void 0&&!o){let y=n.lastIndexOf(`
+`,a.start-1)+1,g=n.slice(y,a.start);g.trim()===""?t.push({start:y,end:y,value:`${g}  <tag k="speed_limit" v="${f}"/>${l}`}):t.push({start:a.start,end:a.start,value:`<tag k="speed_limit" v="${f}"/>`})}f!==void 0&&i.add(r),r=null}return}let c=s.length;if(c===1&&a.name==="relation"){let u=a.attributes?.id?.value;r=u!==void 0&&e.has(u)?u:null,o=!1}if(c===2&&a.name==="tag"&&r!==null&&a.attributes?.k?.value==="speed_limit"&&e.has(r)){let u=a.attributes.v;if(o||u===void 0)throw new S(`Lanelet ${r} \u7684 speed_limit \u6807\u7B7E\u683C\u5F0F\u4E0D\u660E\u786E\u3002`);t.push({start:u.start,end:u.end,value:e.get(r)}),o=!0}a.empty||s.push(a.name)},ce),i.size!==e.size)throw new S("\u65E0\u6CD5\u7CBE\u786E\u5B9A\u4F4D\u6240\u6709\u5F85\u4FEE\u6539\u7684 Lanelet\uFF0C\u5DF2\u53D6\u6D88\u5BFC\u51FA\u3002");return t}function Ae(n,e){if(e.length===0)return n;let t=e.slice().sort((r,o)=>r.start-o.start),i=[],s=0;for(let r of t){if(r.start<s)throw new S("\u5BFC\u51FA\u4FEE\u6539\u8303\u56F4\u91CD\u53E0\uFF0C\u5DF2\u53D6\u6D88\u5BFC\u51FA\u3002");i.push(n.slice(s,r.start),r.value),s=r.end}return i.push(n.slice(s)),i.join("")}var w={background:[17,24,33],straight:[20,163,163],left:[245,158,43],right:[117,109,240],unmarked:[122,143,163],yellow:[255,204,0],pink:[255,45,85],white:[255,255,255],panel:[10,15,23],chipChanged:[26,23,5],chipNormal:[13,20,28]};function se(n){switch(n){case"straight":return w.straight;case"left":return w.left;case"right":return w.right;default:return w.unmarked}}function v(n,e=1){return`rgba(${n[0]}, ${n[1]}, ${n[2]}, ${e})`}function tt(n,e,t){return n.map((i,s)=>Math.round(i+(e[s]-i)*t))}function Oe(){return{lanesDrawn:0,lanesCulled:0,arrows:0,speedLabels:0,conflictMarks:0,changedInView:0,thinLines:0,changedThin:0}}function Se(n,e,t,i,s,r){let o=Math.min(r,i/2,s/2);n.beginPath(),n.moveTo(e+o,t),n.lineTo(e+i-o,t),n.quadraticCurveTo(e+i,t,e+i,t+o),n.lineTo(e+i,t+s-o),n.quadraticCurveTo(e+i,t+s,e+i-o,t+s),n.lineTo(e+o,t+s),n.quadraticCurveTo(e,t+s,e,t+s-o),n.lineTo(e,t+o),n.quadraticCurveTo(e,t,e+o,t),n.closePath()}var D=class D{constructor(e={}){this.width=e.width??800,this.height=e.height??600,this.document=null,this.scale=1,this.offsetX=0,this.offsetY=0,this.framing=null,this.selectedID=null,this.hoverID=null,this.changedIDs=new Set,this.onlyChanged=!1,this.layerFilter=C.BOTH,this.separateLayers=!1,this.showSpeed=!0,this.showDirection=!0,this.showFill=!0,this.showGrid=!0,this.showReadout=!0,this.subPixelWidth=D.SUB_PIXEL_WIDTH,this.effectiveSpeed=t=>t.originalSpeed,this.onSelect=e.onSelect??(()=>{}),this.onHover=e.onHover??(()=>{}),this.stats=Oe(),this._chipCache=new Map}setSize(e,t){this.width=Math.max(1,e),this.height=Math.max(1,t),this.applyFraming()}setDocument(e){this.document=e,this.fit()}setLayerFilter(e){this.layerFilter=e}get fittedScale(){return this.document?.bounds?D.scaleToFit(this.document.bounds,this.width,this.height,D.FIT_MARGIN):1}get zoomMultiple(){let e=this.fittedScale;return e>0?this.scale/e:1}get visibleExtent(){return{width:this.width/this.scale,height:this.height/this.scale}}get worldRect(){return{minX:(0-this.offsetX)/this.scale,minY:(0-this.offsetY)/this.scale,maxX:(this.width-this.offsetX)/this.scale,maxY:(this.height-this.offsetY)/this.scale}}static scaleToFit(e,t,i,s){if(!e||!(e.width>=0)||!(e.height>=0)||t<=0||i<=0)return 1;let r=Math.max(e.width,.001),o=Math.max(e.height,.001),l=Math.min(Math.max(t-s*2,1)/r,Math.max(i-s*2,1)/o);return Math.min(Math.max(l,D.MIN_SCALE),D.MAX_SCALE)}fit(){this.fitTo(this.document?.bounds??null,D.FIT_MARGIN)}fitTo(e,t=D.FIT_MARGIN){if(!e){this.framing=null;return}this.framing={box:e,margin:t},this.applyFraming()}applyFraming(){if(!this.framing)return;let{box:e,margin:t}=this.framing;this.scale=D.scaleToFit(e,this.width,this.height,t),this.offsetX=this.width/2-(e.minX+e.maxX)/2*this.scale,this.offsetY=this.height/2-(e.minY+e.maxY)/2*this.scale}focusLane(e){e?.bounds&&this.fitTo(e.bounds,30)}focusLanes(e){let t=Me(e);t&&this.fitTo(t,34)}zoomBy(e,t){if(!Number.isFinite(e)||e<=0)return;let i=Math.min(Math.max(this.scale*e,D.MIN_SCALE),D.MAX_SCALE);if(i===this.scale)return;let s=i/this.scale;this.offsetX=t.x-(t.x-this.offsetX)*s,this.offsetY=t.y-(t.y-this.offsetY)*s,this.scale=i,this.framing=null}zoomAroundCentre(e){this.zoomBy(e,{x:this.width/2,y:this.height/2})}project(e){return{x:e.x*this.scale+this.offsetX,y:this.height-(e.y*this.scale+this.offsetY)}}unproject(e){return{x:(e.x-this.offsetX)/this.scale,y:(this.height-e.y-this.offsetY)/this.scale}}lanesInView(e){let t=this.worldRect;return e.filter(i=>i.bounds&&i.bounds.minX<=t.maxX&&i.bounds.maxX>=t.minX&&i.bounds.minY<=t.maxY&&i.bounds.maxY>=t.minY)}review(e,t=30){let i=e.filter(s=>s.bounds&&s.averageWidth>0);return i.length===0?(this.fit(),!1):i.length<=t?(this.fitTo(Me(i),34),this.isReadable(i)):this.fitReadable(i)}fitReadable(e,t=14){let i=e.filter(o=>o.bounds&&o.averageWidth>0&&o.labelPoint);if(i.length===0)return this.fit(),!1;let s=Me(i),r=Xe(i.map(o=>o.averageWidth));if(this.fitTo(s,34),this.scale*r<t){let o=this.densestCentre(i,s)??{x:(s.minX+s.maxX)/2,y:(s.minY+s.maxY)/2};this.zoomBy(Math.min(t*1.02/(r*this.scale),80),this.project(o))}return this.isReadable(i,t)}isReadable(e,t=14){return e.length===0||this.lanesInView(e).length===0?!1:this.scale*Xe(e.map(i=>i.averageWidth))>=t}densestCentre(e,t){let i=Math.max(Math.max(t.width,t.height)/20,1),s=new Map;for(let o of e){if(!o.labelPoint)continue;let l=`${Math.floor((o.labelPoint.x-t.minX)/i)},${Math.floor((o.labelPoint.y-t.minY)/i)}`,a=s.get(l)??{count:0,x:0,y:0};a.count+=1,a.x+=o.labelPoint.x,a.y+=o.labelPoint.y,s.set(l,a)}let r=null;for(let o of s.values())(!r||o.count>r.count)&&(r=o);return!r||r.count===0?null:{x:r.x/r.count,y:r.y/r.count}}shiftFor(e){if(!this.separateLayers||this.layerFilter!==C.BOTH||e.handedness!==x.REVERSED)return{x:0,y:0};let t=e.centerline;if(t.length<2)return{x:0,y:0};let i=this.project(t[0]),s=this.project(t[t.length-1]),r=s.x-i.x,o=s.y-i.y,l=Math.hypot(r,o)||1;return{x:-o/l*D.LAYER_OFFSET,y:r/l*D.LAYER_OFFSET}}drawPath(e,t,i={x:0,y:0},s=!1){if(t.length!==0){e.beginPath();for(let[r,o]of t.entries()){let l=this.project(o),a=l.x+i.x,c=l.y+i.y;r===0?e.moveTo(a,c):e.lineTo(a,c)}s&&e.closePath()}}measure(e,t,i){return e.font=i,e.measureText(t).width}chipMetrics(e,t,i){let s=`${t}|${i.font}|${i.paddingX}|${i.paddingY}`,r=this._chipCache.get(s);if(r)return r;let o=Math.ceil(this.measure(e,t,i.font))+i.paddingX*2,l=(i.fontSize??11)+i.paddingY*2+3,a={width:o,height:l};return this._chipCache.set(s,a),a}drawChip(e,t,i,s){let{width:r,height:o}=this.chipMetrics(e,t,s),l=i.x-r/2,a=i.y-o/2;return Se(e,l,a,r,o,3.5),e.fillStyle=s.background,e.fill(),s.border&&(e.strokeStyle=s.border,e.lineWidth=1,e.stroke()),e.font=s.font,e.fillStyle=s.text,e.textAlign="left",e.textBaseline="middle",e.fillText(t,l+s.paddingX,a+o/2+.5),{x:l,y:a,width:r,height:o}}render(e){this.stats=Oe(),this._chipCache.clear(),e.save(),e.beginPath(),e.rect(0,0,this.width,this.height),e.clip(),e.fillStyle=v(w.background),e.fillRect(0,0,this.width,this.height),this.drawGrid(e);let t=this.drawLanes(e);return this.showDirection&&this.drawArrows(e,t),this.showSpeed&&this.drawSpeedLabels(e,t),this.showReadout&&this.drawOverlays(e),e.restore(),this.stats}drawGrid(e){if(!this.showGrid||this.scale<=0)return;let t=this.worldRect,i=ne(90/this.scale),s=i*this.scale;if(!(i>0)||s<6)return;e.beginPath();let r=Math.floor(t.minX/i)*i;for(;r<=t.maxX;){let l=this.project({x:r,y:0}),a=Math.round(l.x)+.5;e.moveTo(a,0),e.lineTo(a,this.height),r+=i}let o=Math.floor(t.minY/i)*i;for(;o<=t.maxY;){let l=this.project({x:0,y:o}),a=Math.round(l.y)+.5;e.moveTo(0,a),e.lineTo(this.width,a),o+=i}e.strokeStyle=v(w.white,.05),e.lineWidth=1,e.stroke()}drawLanes(e){let t=[];if(!this.document)return t;for(let i of this.document.lanes){if(this.onlyChanged&&!this.changedIDs.has(i.id)||!z(this.layerFilter,i.handedness)||i.polygon.length<4||!i.bounds)continue;let s=this.screenBox(i.bounds);if(s.maxX<-3||s.minX>this.width+3||s.maxY<-3||s.minY>this.height+3){this.stats.lanesCulled+=1;continue}let r=this.changedIDs.has(i.id);if(r&&(this.stats.changedInView+=1),this.stats.lanesDrawn+=1,t.push({lane:i,box:s}),i.id===this.selectedID||i.id===this.hoverID)continue;let l=i.averageWidth*this.scale,a=this.shiftFor(i),c=se(i.direction);if(l<this.subPixelWidth&&i.centerline.length>=2){this.drawPath(e,i.centerline,a),e.strokeStyle=v(r?w.yellow:c,.92),e.lineWidth=r?1.9:1.1,e.lineCap="round",i.handedness===x.REVERSED&&a.x===0&&a.y===0&&e.setLineDash([4,3]),e.stroke(),e.setLineDash([]),r&&(this.stats.changedThin+=1),i.boundsDisagree&&(this.drawPath(e,i.centerline,a),e.strokeStyle=v(w.pink,.95),e.lineWidth=2.6,e.setLineDash([3,3]),e.stroke(),e.setLineDash([]),this.stats.conflictMarks+=1),this.stats.thinLines+=1;continue}if(this.drawPath(e,i.polygon,a,!0),this.showFill){let u=Math.min(Math.max((l-3)/60,0),1);e.fillStyle=v(c,r?.55-.26*u:.46-.31*u),e.fill()}e.strokeStyle=v(c,.95),e.lineWidth=r?1.9:.9,i.handedness===x.REVERSED&&a.x===0&&a.y===0&&e.setLineDash([6,4]),e.stroke(),e.setLineDash([]),r&&(this.drawPath(e,i.polygon,a,!0),e.strokeStyle=v(w.yellow,.85),e.lineWidth=2.4,e.stroke()),i.boundsDisagree&&(this.drawPath(e,i.polygon,a,!0),e.strokeStyle=v(w.pink,.9),e.lineWidth=1.6,e.stroke(),this.stats.conflictMarks+=1)}for(let i of[this.hoverID,this.selectedID]){let s=i===null?void 0:t.find(o=>o.lane.id===i);if(!s)continue;let r=i===this.selectedID;this.drawPath(e,s.lane.polygon,this.shiftFor(s.lane),!0),e.fillStyle=v(w.white,r?.22:.12),e.fill(),e.strokeStyle=v(w.white),e.lineWidth=r?3:2,e.stroke()}return t}screenBox(e){let t=this.project({x:e.minX,y:e.minY}),i=this.project({x:e.maxX,y:e.maxY});return{minX:Math.min(t.x,i.x),maxX:Math.max(t.x,i.x),minY:Math.min(t.y,i.y),maxY:Math.max(t.y,i.y),get width(){return this.maxX-this.minX},get height(){return this.maxY-this.minY}}}drawArrowhead(e,t,i,s,r){let o=Math.hypot(i.x,i.y);if(!(o>1e-4))return;let l=i.x/o,a=i.y/o,c=-a,u=l;e.beginPath(),e.moveTo(t.x-l*s*1.1,t.y-a*s*1.1),e.lineTo(t.x+l*s*.1,t.y+a*s*.1),e.strokeStyle=v(r,.78),e.lineWidth=Math.max(s*.22,1.4),e.lineCap="round",e.stroke();let f={x:t.x+l*s*.6,y:t.y+a*s*.6},y={x:t.x-l*s*.4,y:t.y-a*s*.4},g=s*.34;e.beginPath(),e.moveTo(f.x,f.y),e.lineTo(y.x+c*g,y.y+u*g),e.lineTo(y.x-c*g,y.y-u*g),e.closePath(),e.fillStyle=v(r),e.fill(),e.strokeStyle="rgba(0, 0, 0, 0.55)",e.lineWidth=.8,e.stroke()}drawArrows(e,t){for(let{lane:i,box:s}of t){let r=X.travelPath(i);if(r.length<2||Math.max(s.width,s.height)<26)continue;let o=this.shiftFor(i),l=r.map(m=>{let b=this.project(m);return{x:b.x+o.x,y:b.y+o.y}}),a=W(l);if(a<30)continue;let c=i.id===this.selectedID||i.id===this.hoverID,u=130,f=[];if(a<=u)f.push(a*.5);else for(let m=u*.5;m<a;m+=u)f.push(m);let y=i.labelPoint?(()=>{let m=this.project(i.labelPoint);return{x:m.x+o.x,y:m.y+o.y}})():null,g=c?w.white:tt(se(i.direction),w.white,.45);for(let m of f){let b=be(l,m);b&&(y&&Math.hypot(b.point.x-y.x,b.point.y-y.y)<(this.showSpeed?26:0)||(this.drawArrowhead(e,b.point,b.direction,c?15:13,g),this.stats.arrows+=1))}}}drawSpeedLabels(e,t){let i=this.stats.changedInView<=400;for(let{lane:s,box:r}of t){let o=this.changedIDs.has(s.id),l=s.id===this.selectedID||s.id===this.hoverID;if(!l&&!o&&(r.width<22||r.height<16)||!s.labelPoint)continue;let a=this.shiftFor(s),c=this.project(s.labelPoint),u={x:c.x+a.x,y:c.y+a.y},f=String(this.effectiveSpeed(s)??s.originalSpeed??"\u2014"),y={background:v(o?w.chipChanged:w.chipNormal,o?.94:.88),border:l?v(w.white):o?v(w.yellow):v(se(s.direction),.8),text:o?v(w.yellow):l?v(w.white):"rgba(255, 255, 255, 0.92)",font:`${o||l?"bold":"600"} 11px ui-monospace, SFMono-Regular, Menlo, monospace`,fontSize:11,paddingX:4,paddingY:2},{width:g,height:m}=this.chipMetrics(e,f,y);(g<=r.width+2&&m<=r.height+2||l||o&&i)&&(this.drawChip(e,f,u,y),this.stats.speedLabels+=1)}}drawPanel(e,t,i,s=!1,r=null){let o="500 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",l="500 12px ui-monospace, SFMono-Regular, Menlo, monospace",a=t.map((L,E)=>Math.ceil(this.measure(e,L.text,E===1&&t.length>2?l:o))),c=Math.max(...a,0),u=9,f=7,y=15,g=r?3:0,m=c+u*2+g,b=t.length*y+(t.length-1)*3+f*2,M=s?i.x-m:i.x,k=i.y;return Se(e,M,k,m,b,6),e.fillStyle=v(w.panel,.88),e.fill(),e.strokeStyle=v(w.white,.22),e.lineWidth=1,e.stroke(),r&&(Se(e,M,k,g,b,1.5),e.fillStyle=v(r),e.fill()),t.forEach((L,E)=>{e.font=E===0?"600 12.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif":E===1&&t.length>2?l:o,e.fillStyle=E===0?v(w.white):v(w.white,.8),e.textAlign="left",e.textBaseline="top",e.fillText(L.text,M+u+g,k+f+E*(y+3))}),{x:M,y:k,width:m,height:b}}drawScaleBar(e){let t=ne(130/this.scale),i=t*this.scale;if(!(i>8)||i>this.width-24)return;let s={x:14,y:this.height-26};e.beginPath(),e.moveTo(s.x,s.y),e.lineTo(s.x+i,s.y),e.moveTo(s.x,s.y-4),e.lineTo(s.x,s.y+4),e.moveTo(s.x+i,s.y-4),e.lineTo(s.x+i,s.y+4),e.strokeStyle=v(w.white,.85),e.lineWidth=1.6,e.stroke();let r=t>=1e3?`${(t/1e3).toFixed(1)} km`:`${Math.round(t)} m`;this.drawChip(e,r,{x:s.x+i/2,y:s.y-15},{background:"rgba(0, 0, 0, 0.6)",border:null,text:v(w.white),font:"500 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",fontSize:10,paddingX:4,paddingY:1})}drawCompass(e){let t={x:this.width-46,y:this.height-48};e.beginPath(),e.moveTo(t.x,t.y-15),e.lineTo(t.x,t.y+15),e.moveTo(t.x-15,t.y),e.lineTo(t.x+15,t.y),e.strokeStyle=v(w.white,.5),e.lineWidth=1,e.stroke(),this.drawArrowhead(e,{x:t.x,y:t.y-15},{x:0,y:-1},9,v(w.white,.8)),this.drawArrowhead(e,{x:t.x+15,y:t.y},{x:1,y:0},9,v(w.white,.8)),e.font="bold 10px -apple-system, BlinkMacSystemFont, sans-serif",e.fillStyle=v(w.white,.85),e.textAlign="left",e.textBaseline="top",e.fillText("Y",t.x+5,t.y-20),e.fillText("X",t.x+18,t.y+2);let i=this.document?.northAngle??null;if(i!==null){let s=Math.sin(i),r=-Math.cos(i),o={x:t.x+s*26,y:t.y+r*26};e.beginPath(),e.moveTo(o.x,o.y),e.lineTo(t.x,t.y),e.strokeStyle=v(w.pink,.9),e.lineWidth=1.6,e.stroke(),this.drawArrowhead(e,o,{x:s,y:r},9,w.pink),e.fillStyle=v(w.pink),e.fillText("N",t.x+s*32-4,t.y+r*32-5)}else e.font="500 9px -apple-system, BlinkMacSystemFont, sans-serif",e.fillStyle=v(w.white,.6),e.fillText("\u5730\u56FE\u5750\u6807",t.x-22,t.y+20)}drawOverlays(e){let t=this.document,i=this.selectedID??this.hoverID,s=i===null?null:t?.lanes.find(l=>l.id===i)??null;if(s){let l=this.effectiveSpeed(s)??s.originalSpeed,a=[{text:`Lanelet ${s.id} \xB7 ${F(s.direction)}`}];l==null||l===""?a.push({text:"\u9650\u901F \u672A\u8BBE\u7F6E"}):s.originalSpeed&&s.originalSpeed!==String(l)?a.push({text:`\u9650\u901F ${l} km/h\uFF08\u539F ${s.originalSpeed}\uFF09`}):a.push({text:`\u9650\u901F ${l} km/h`}),s.boundsDisagree?a.push({text:"\u26A0 \u5DE6\u53F3\u8FB9\u754C\u65B9\u5411\u4E0D\u4E00\u81F4\uFF0C\u884C\u9A76\u65B9\u5411\u5B58\u7591"}):s.handedness===x.REVERSED?a.push({text:"\u53CD\u5411\u5C42\uFF1A\u5B9E\u9645\u884C\u9A76\u65B9\u5411\u4E0E\u5B58\u50A8\u987A\u5E8F\u76F8\u53CD"}):s.handedness===x.UNKNOWN?a.push({text:"\u56FE\u5C42\u65E0\u6CD5\u5224\u5B9A\uFF08\u8F66\u9053\u5F62\u72B6\u9000\u5316\uFF09"}):a.push({text:"\u6B63\u5411\u5C42\uFF1A\u5B58\u50A8\u987A\u5E8F\u5C31\u662F\u884C\u9A76\u65B9\u5411"}),this.drawPanel(e,a,{x:12,y:12},!1,se(s.direction))}let r=this.stats.lanesDrawn,o=[{text:`\u653E\u5927 ${this.zoomMultiple.toFixed(1)}\xD7 \xB7 \u89C6\u7A97 ${this.visibleExtent.width.toFixed(0)} \xD7 ${this.visibleExtent.height.toFixed(0)} m`},{text:`\u89C6\u7A97\u5185 ${r} \u6761 \xB7 \u5DF2\u4FEE\u6539 ${this.stats.changedInView} \u6761`}];this.onlyChanged?o.push({text:`\u53EA\u663E\u793A\u5DF2\u4FEE\u6539\u8F66\u9053 \xB7 ${this.layerFilter===C.BOTH?"\u4E24\u5C42\u540C\u65F6\u663E\u793A":this.layerFilter===C.FORWARD?"\u53EA\u770B\u6B63\u5411\u5C42":"\u53EA\u770B\u53CD\u5411\u5C42"}`}):this.layerFilter!==C.BOTH&&o.push({text:this.layerFilter===C.FORWARD?"\u53EA\u770B\u6B63\u5411\u5C42":"\u53EA\u770B\u53CD\u5411\u5C42"}),this.drawPanel(e,o,{x:this.width-12,y:12},!0),this.drawScaleBar(e),this.drawCompass(e)}laneAt(e){if(!this.document)return null;for(let t=this.document.lanes.length-1;t>=0;t-=1){let i=this.document.lanes[t];if(i.polygon.length<4||!i.bounds||this.onlyChanged&&!this.changedIDs.has(i.id)||!z(this.layerFilter,i.handedness))continue;let s=this.screenBox(i.bounds);if(!(e.x<s.minX-3||e.x>s.maxX+3||e.y<s.minY-3||e.y>s.maxY+3)&&nt(r=>this.project(r),i.polygon,this.shiftFor(i),e))return i}return null}handleHover(e){let t=this.laneAt(e),i=t?.id??null;i!==this.hoverID&&(this.hoverID=i,this.onHover(t))}clearHover(){this.hoverID!==null&&(this.hoverID=null,this.onHover(null))}};B(D,"FIT_MARGIN",8),B(D,"MIN_SCALE",1e-7),B(D,"MAX_SCALE",200),B(D,"LAYER_OFFSET",5),B(D,"SUB_PIXEL_WIDTH",1.6);var re=D;function nt(n,e,t,i){let s=!1,r=e.length-1;for(let o=0;o<e.length;o+=1){let l=n(e[o]),a=n(e[r]),c=l.x+t.x,u=l.y+t.y,f=a.x+t.x,y=a.y+t.y;u>i.y!=y>i.y&&i.x<(f-c)*(i.y-u)/(y-u)+c&&(s=!s),r=o}return s}function Me(n){let e=null;for(let t of n)t.bounds&&(e?(e.minX=Math.min(e.minX,t.bounds.minX),e.minY=Math.min(e.minY,t.bounds.minY),e.maxX=Math.max(e.maxX,t.bounds.maxX),e.maxY=Math.max(e.maxY,t.bounds.maxY)):e={...t.bounds});return e&&(e.width=e.maxX-e.minX,e.height=e.maxY-e.minY),e}function Xe(n){if(n.length===0)return 0;let e=n.slice().sort((t,i)=>t-i);return e[Math.floor(e.length/2)]}var it=400,d=n=>document.getElementById(n),h={document:null,fileName:null,fileHandle:null,edits:new Map,savedEdits:new Map,undo:[],selectedID:null,visible:[],busy:!1,maximised:!1},p=new re({onSelect:n=>H(n.id),onHover:n=>dt(n)}),R=d("mapCanvas"),Be=R.getContext("2d"),V=1;function T(n,e=!1){d("status").textContent=n,d("status").parentElement.classList.toggle("error",e)}function _(n,e,t){return new Promise(i=>{d("modalTitle").textContent=n,d("modalBody").textContent=e;let s=d("modalActions");s.textContent="",t.forEach((r,o)=>{let l=document.createElement("button");l.className=`btn${r.primary?" primary":""}`,l.type="button",l.textContent=r.label,l.addEventListener("click",()=>{d("modal").hidden=!0,i(r.value??o)}),s.appendChild(l)}),d("modal").hidden=!1})}function I(n){let e=n instanceof S?n.message:String(n?.message??n);return T(`\u64CD\u4F5C\u672A\u5B8C\u6210\uFF1A${e}`,!0),_("\u64CD\u4F5C\u672A\u5B8C\u6210",e,[{label:"\u77E5\u9053\u4E86",value:0,primary:!0}])}var st=[{description:"Lanelet2 OSM \u5730\u56FE",accept:{"application/xml":[".osm",".xml"]}}];async function Pe(){if(!h.busy)try{if(globalThis.lanespeed?.openFile){let e=await globalThis.lanespeed.openFile();if(!e)return;await j(e.text,e.name,null);return}if(globalThis.showOpenFilePicker){let[e]=await globalThis.showOpenFilePicker({types:st,multiple:!1});if(!e)return;let t=await e.getFile();await j(await t.text(),t.name,e);return}let n=document.createElement("input");n.type="file",n.accept=".osm,.xml,application/xml",n.addEventListener("change",async()=>{let e=n.files?.[0];e&&await j(await e.text(),e.name,null)}),n.click()}catch(n){n?.name!=="AbortError"&&await I(n)}}async function j(n,e,t){if(h.busy)return;let i;try{i=new X(n)}catch(s){await I(s),T("\u5BFC\u5165\u5931\u8D25\uFF1B\u8BF7\u67E5\u770B\u9519\u8BEF\u8BF4\u660E\u3002\u5F53\u524D\u5730\u56FE\u4E0E\u672A\u5BFC\u51FA\u7684\u4FEE\u6539\u90FD\u4FDD\u6301\u539F\u6837\u3002",!0);return}h.document&&h.edits.size>0&&!Ee(h.edits,h.savedEdits)&&await _("\u8FD8\u6709\u672A\u5BFC\u51FA\u7684\u9650\u901F\u4FEE\u6539","\u7EE7\u7EED\u6253\u5F00\u65B0\u5730\u56FE\u5C06\u4E22\u5F03\u672A\u5BFC\u51FA\u7684\u4FEE\u6539\u3002\u8981\u4FDD\u7559\u5B83\u4EEC\uFF0C\u8BF7\u5148\u53D6\u6D88\u5E76\u70B9\u51FB\u300C\u5BFC\u51FA\u526F\u672C\u300D\u3002\u539F\u5730\u56FE\u6587\u4EF6\u4E0D\u53D7\u5F71\u54CD\u3002",[{label:"\u53D6\u6D88",value:0},{label:"\u653E\u5F03\u4FEE\u6539\u5E76\u7EE7\u7EED",value:1,primary:!0}])!==1||(h.busy=!0,T(`\u6B63\u5728\u8BFB\u53D6 ${e}\u2026`),h.document=i,h.fileName=e,h.fileHandle=t,h.edits=new Map,h.savedEdits=new Map,h.undo=[],h.selectedID=null,d("includeUnmarked").checked=!1,d("category").value="all",d("search").value="",d("layerPopup").value="both",d("separateLayers").checked=!1,d("layerOnly").checked=!1,p.setLayerFilter(C.BOTH),p.separateLayers=!1,p.onlyChanged=!1,p.changedIDs=new Set,p.setDocument(i),d("filename").textContent=e,d("summary").textContent=`${i.lanes.length} \u6761 Lanelet \xB7 ${i.nodeCount} \u4E2A\u8282\u70B9 \xB7 ${i.drawableCount} \u6761\u53EF\u9884\u89C8`,d("coordinateLabel").textContent=i.coordinateDescription+(i.northAngle===null?`
+\u5730\u56FE\u672A\u5305\u542B\u7ECF\u7EAC\u5EA6\uFF0C\u65B9\u5411\u4EE5\u5730\u56FE\u81EA\u8EAB X / Y \u8F74\u4E3A\u51C6`:`
+\u5DF2\u6309\u7ECF\u7EAC\u5EA6\u6807\u51FA\u6B63\u5317\u65B9\u5411`)+(i.directionConflictCount>0?`
+\u26A0 ${i.directionConflictCount} \u6761\u8F66\u9053\u5DE6\u53F3\u8FB9\u754C\u65B9\u5411\u4E0D\u4E00\u81F4\uFF08\u7C89\u8272\u63CF\u8FB9\uFF09`:""),T(`\u5BFC\u5165\u6210\u529F\uFF1A${e}${i.drawableCount<i.lanes.length?`\uFF08${i.lanes.length-i.drawableCount} \u6761\u7F3A\u5C11\u5B8C\u6574\u8FB9\u754C\uFF0C\u4EC5\u5217\u8868\u53EF\u7F16\u8F91\uFF09`:""}`),i.title=`${e} \u2014 LaneSpeed \u9650\u901F\u7F16\u8F91\u5668`,h.busy=!1,A(),q())}async function Ye(){if(!(!h.document||h.busy))try{let n=h.document.export(h.edits),e=rt(h.fileName);if(globalThis.lanespeed?.saveFile){let t=await globalThis.lanespeed.saveFile(e,n);if(!t)return;h.savedEdits=new Map(h.edits),A(),T(`\u5BFC\u51FA\u6210\u529F\uFF1A${t} \xB7 \u4FEE\u6539 ${h.edits.size} \u6761 \xB7 \u539F\u56FE\u672A\u6539\u52A8`),await _("\u5730\u56FE\u526F\u672C\u5DF2\u5BFC\u51FA",`${t}
+
+\u4FEE\u6539 ${h.edits.size} \u6761\u8F66\u9053\u3002\u8BF7\u5728 Autoware \u4E2D\u9A8C\u8BC1\u540E\u518D\u7528\u4E8E\u8F66\u8F86\u3002`,[{label:"\u5B8C\u6210",value:0,primary:!0}]);return}if(globalThis.showSaveFilePicker){let i=await(await globalThis.showSaveFilePicker({suggestedName:e,types:[{description:"Lanelet2 OSM \u5730\u56FE",accept:{"application/xml":[".osm"]}}]})).createWritable();await i.write(n),await i.close()}else{let t=new Blob([n],{type:"application/xml;charset=utf-8"}),i=URL.createObjectURL(t),s=document.createElement("a");s.href=i,s.download=e,document.body.appendChild(s),s.click(),s.remove(),setTimeout(()=>URL.revokeObjectURL(i),1e4)}h.savedEdits=new Map(h.edits),A(),T(`\u5BFC\u51FA\u6210\u529F\uFF1A${e} \xB7 \u4FEE\u6539 ${h.edits.size} \u6761 \xB7 \u539F\u56FE\u672A\u6539\u52A8`),await _("\u5730\u56FE\u526F\u672C\u5DF2\u5BFC\u51FA",`${e}
+
+\u4FEE\u6539 ${h.edits.size} \u6761\u8F66\u9053\u3002\u8BF7\u5728 Autoware \u4E2D\u9A8C\u8BC1\u540E\u518D\u7528\u4E8E\u8F66\u8F86\u3002`,[{label:"\u5B8C\u6210",value:0,primary:!0}])}catch(n){if(n?.name==="AbortError")return;await I(n),T(`\u5BFC\u51FA\u5931\u8D25\uFF1A${n.message}`,!0)}}function rt(n){return`${(n??"lanelet2_map.osm").replace(/\.(osm|xml)$/i,"")}_\u9650\u901F\u4FEE\u6539.osm`}function A(){let n=h.document!==null;d("openButton").disabled=h.busy,d("exportButton").disabled=!n||h.busy,d("undoButton").disabled=h.undo.length===0||h.busy;for(let i of["straight","left","right"]){let s=h.document?.lanes.filter(o=>o.direction===i).length??0,r=i.charAt(0).toUpperCase()+i.slice(1);d(`count${r}`).textContent=`${s} \u6761`,d(`speed${r}`).disabled=!n||h.busy,document.querySelector(`[data-apply="${i}"]`).disabled=!n||h.busy}d("includeUnmarked").disabled=!n||h.busy;let e=h.document?.lanes.filter(i=>!i.originalDirection?.trim()).length??0,t=(h.document?.lanes.filter(i=>i.direction==="unmarked").length??0)-e;d("unmarkedLabel").textContent=`\u672A\u6807\u6CE8\uFF1A${e} \u6761${t>0?` \xB7 \u5176\u4ED6\u5C5E\u6027\uFF1A${t} \u6761`:""}`,d("changedLabel").textContent=`\u5DF2\u4FEE\u6539 ${h.edits.size} \u6761\u8F66\u9053${h.edits.size>0&&Ee(h.edits,h.savedEdits)?" \xB7 \u5DF2\u5BFC\u51FA":""}`,d("layerPopup").disabled=!n||h.busy,d("separateLayers").disabled=!n||h.busy,d("layerOnly").disabled=!n||h.busy||p.layerFilter===C.BOTH,p.layerFilter===C.BOTH&&(d("layerOnly").checked=!1);for(let[i,s]of[["toggleSpeed","showSpeed"],["toggleDirection","showDirection"],["toggleFill","showFill"],["toggleGrid","showGrid"],["toggleOnlyChanged","onlyChanged"]])d(i).checked=p[s],d(i).disabled=!n||h.busy||i==="toggleOnlyChanged"&&h.edits.size===0;d("reviewButton").disabled=!n||h.busy||h.edits.size===0,d("reviewNextButton").disabled=!n||h.busy||h.edits.size===0,d("layerDataButton").disabled=!n||h.busy||(h.document?.reverseLayer.length??0)===0,n?ot():d("layerSummary").textContent="\u6253\u5F00\u5730\u56FE\u540E\u663E\u793A\u65B9\u5411\u5206\u5C42\u7EDF\u8BA1",p.changedIDs=new Set(h.edits.keys()),p.effectiveSpeed=i=>h.edits.get(i.id)??i.originalSpeed,ae(),He()}function Ee(n,e){if(n.size!==e.size)return!1;for(let[t,i]of n)if(e.get(t)!==i)return!1;return!0}function ot(){let n=h.document;if(!n)return;let e=n.statistics(x.FORWARD),t=n.statistics(x.REVERSED),i=n.statistics(x.UNKNOWN),s=[`\u6B63\u5411 ${e.count} \u6761 \xB7 ${Math.round(e.length)} m`,`\u53CD\u5411 ${t.count} \u6761 \xB7 ${Math.round(t.length)} m`];if(i.count>0&&s.push(`\u65E0\u6CD5\u5224\u5B9A ${i.count} \u6761`),t.count>0){let r=n.reverseLayerPairs(),o=r.filter(l=>l.forward!==null&&l.overlap>=.5).length;s.push(`\u53CD\u5411\u5C42\u4E2D\u4E0E\u6B63\u5411\u5C42\u91CD\u5408\uFF1A${o} / ${r.length} \u6761`)}d("layerSummary").textContent=s.join(`
+`)}function at(n){let e=h.document;if(!e)return[];let t=d("layerOnly").checked&&p.layerFilter!==C.BOTH;return e.lanes.filter(i=>t&&p.layerFilter===C.FORWARD&&i.handedness!==x.FORWARD||t&&p.layerFilter===C.REVERSED&&i.handedness!==x.REVERSED?!1:i.direction===n?!0:n==="straight"&&d("includeUnmarked").checked&&!i.originalDirection?.trim())}async function lt(n){if(!(!h.document||h.busy))try{let e=d(`speed${n.charAt(0).toUpperCase()}${n.slice(1)}`),t=U(e.value),i=at(n);if(i.length===0){await I(new S(d("layerOnly").checked?`\u5F53\u524D\u56FE\u5C42\u91CC\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684${F(n)}\u8F66\u9053\u3002\u53EF\u628A\u300C\u6279\u91CF\u6539\u901F\u53EA\u4F5C\u7528\u4E8E\u5F53\u524D\u56FE\u5C42\u300D\u5173\u6389\uFF0C\u6216\u6362\u4E00\u4E2A\u56FE\u5C42\u3002`:`\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684${F(n)}\u8F66\u9053\u3002\u82E5\u5730\u56FE\u672A\u6807\u6CE8 turn_direction\uFF0C\u8BF7\u786E\u8BA4\u540E\u52FE\u9009\u300C\u5C06\u672A\u6807\u6CE8\u8F66\u9053\u4E00\u8D77\u6309\u76F4\u884C\u6539\u901F\u300D\u3002`));return}if(n==="straight"&&d("includeUnmarked").checked&&i.filter(r=>r.direction==="unmarked").length>0&&await _("\u540C\u65F6\u4FEE\u6539\u672A\u6807\u6CE8\u8F66\u9053\uFF1F",`\u8FD9\u4E9B\u8F66\u9053\u6CA1\u6709 turn_direction \u5C5E\u6027\uFF0C\u4E0D\u80FD\u636E\u6B64\u786E\u5B9A\u662F\u5426\u76F4\u884C\u3002\u786E\u8BA4\u540E\uFF0C\u672C\u6B21\u5171 ${i.length} \u6761\u8F66\u9053\u5C06\u8BBE\u4E3A ${t} km/h\uFF1B\u8F6C\u5411\u5C5E\u6027\u4FDD\u6301\u4E0D\u53D8\u3002`,[{label:"\u53D6\u6D88",value:0},{label:"\u786E\u8BA4\u6539\u901F",value:1,primary:!0}])!==1)return;Ce(i.map(s=>s.id),t)}catch(e){await I(e)}}function ht(){if(!(!h.selectedID||h.busy))try{Ce([h.selectedID],U(d("selectedSpeed").value))}catch(n){I(n)}}function Ce(n,e){let t=h.document;if(!t)return;let i=new Set(n),s=new Map(h.edits);for(let o of t.lanes)i.has(o.id)&&(o.originalSpeed===e?s.delete(o.id):s.set(o.id,e));if(Ee(s,h.edits)){T(`\u9009\u4E2D\u7684\u8F66\u9053\u5DF2\u7ECF\u662F ${e} km/h\uFF0C\u65E0\u9700\u4FEE\u6539\u3002`);return}h.undo.push(new Map(h.edits)),h.undo.length>100&&h.undo.shift(),h.edits=s,A();let r=d("layerOnly").checked&&p.layerFilter!==C.BOTH?`\uFF08${p.layerFilter===C.FORWARD?"\u53EA\u770B\u6B63\u5411\u5C42":"\u53EA\u770B\u53CD\u5411\u5C42"}\uFF09`:"";T(`\u5DF2\u5C06${r} ${n.length} \u6761\u8F66\u9053\u8BBE\u4E3A ${e} km/h\u3002\u70B9\u51FB\u300C\u5BFC\u51FA\u526F\u672C\u300D\u4FDD\u5B58\uFF0C\u539F\u56FE\u672A\u6539\u52A8\u3002`)}function We(){h.busy||h.undo.length===0||(h.edits=h.undo.pop(),A(),T("\u5DF2\u64A4\u9500\u4E0A\u6B21\u6539\u901F\u3002\u539F\u56FE\u672A\u6539\u52A8\u3002"))}function ct(){let n=h.document;if(!n)return[];let e=d("search").value.trim().toLowerCase(),t=d("category").value;return n.lanes.filter(i=>e&&!i.id.toLowerCase().includes(e)?!1:t==="changed"?h.edits.has(i.id):t==="forward"?i.handedness===x.FORWARD:t==="reversed"?i.handedness===x.REVERSED:t!=="all"?i.direction===t:!0)}function ae(){let n=d("laneBody");h.visible=ct(),n.textContent="";let e=h.visible.slice(0,it),t=document.createDocumentFragment();for(let i of e){let s=document.createElement("tr");s.dataset.id=i.id,i.id===h.selectedID&&s.classList.add("selected");let r=h.edits.get(i.id)??i.originalSpeed,o=h.edits.has(i.id),l=[["id",i.id,""],["layer",N(i.handedness),i.handedness===x.REVERSED?"reversed":"forward"],["",i.direction==="unmarked"&&i.originalDirection?`\u5176\u4ED6\uFF1A${i.originalDirection}`:F(i.direction),""],["num",i.originalSpeed??"\u672A\u8BBE\u7F6E",""],["num",r??"\u672A\u8BBE\u7F6E",o?"changed":""],["",o?"\u5DF2\u4FEE\u6539":"\u2014",""]];for(let[a,c,u]of l){let f=document.createElement("td");f.textContent=c,a&&(f.className=a),u&&f.classList.add(u),s.appendChild(f)}s.addEventListener("click",()=>H(i.id,{scroll:!1})),s.addEventListener("dblclick",()=>{H(i.id,{scroll:!1}),p.focusLane(i),$()}),t.appendChild(s)}n.appendChild(t),d("tableCount").textContent=h.visible.length>e.length?`${e.length} / ${h.visible.length} \u6761`:`${h.visible.length} \u6761`}function H(n,e={}){h.selectedID=n,(h.document?.lanes.find(i=>i.id===n)??null)&&!h.visible.some(i=>i.id===n)&&(d("category").value="all",d("search").value="",ae());for(let i of d("laneBody").children)i.classList.toggle("selected",i.dataset.id===n);e.scroll!==!1&&[...d("laneBody").children].find(s=>s.dataset.id===n)?.scrollIntoView({block:"nearest"}),p.selectedID=n,He(),$()}function He(){let n=h.document?.lanes.find(t=>t.id===h.selectedID)??null,e=n!==null;if(d("applySingle").disabled=!e||h.busy,d("selectedSpeed").disabled=!e||h.busy,d("focusSelected").disabled=!e||n.polygon.length===0||h.busy,!n){d("selectedLabel").textContent="\u5728\u5730\u56FE\u6216\u5217\u8868\u4E2D\u9009\u62E9\u4E00\u6761\u8F66\u9053",d("selectedSpeed").value="";return}d("selectedLabel").textContent=`ID ${n.id} \xB7 ${F(n.direction)} \xB7 ${N(n.handedness)}\u5C42
+\u539F\u9650\u901F\uFF1A${n.originalSpeed??"\u672A\u8BBE\u7F6E"} km/h`,document.activeElement!==d("selectedSpeed")&&(d("selectedSpeed").value=h.edits.get(n.id)??n.originalSpeed??"")}function dt(n){if(!n){d("hoverLabel").textContent="\u628A\u9F20\u6807\u79FB\u5230\u8F66\u9053\u4E0A\u53EF\u67E5\u770B\u8BE5\u8F66\u9053\u7684\u9650\u901F\u4E0E\u65B9\u5411";return}let e=h.edits.get(n.id)??n.originalSpeed??"\u672A\u8BBE\u7F6E",t=`Lanelet ${n.id} \xB7 ${F(n.direction)} \xB7 ${N(n.handedness)}\u5C42 \xB7 \u9650\u901F ${e} km/h`;h.edits.has(n.id)&&n.originalSpeed&&(t+=`\uFF08\u539F ${n.originalSpeed}\uFF09`),n.boundsDisagree&&(t+=" \xB7 \u26A0 \u5DE6\u53F3\u8FB9\u754C\u65B9\u5411\u4E0D\u4E00\u81F4"),d("hoverLabel").textContent=t}async function Ne(){if(!h.document||h.busy)return;let n=h.document.lanes.filter(i=>h.edits.has(i.id));if(n.length===0){await I(new S("\u8FD8\u6CA1\u6709\u4EFB\u4F55\u9650\u901F\u4FEE\u6539\u3002\u5148\u586B\u5199\u901F\u5EA6\u5E76\u70B9\u51FB\u300C\u5E94\u7528\u300D\u3002"));return}p.onlyChanged=!0,d("toggleOnlyChanged").checked=!0;let e=p.review(n),t=p.lanesInView(n).length;$(),A(),T(e?`\u5DF2\u53EA\u663E\u793A ${n.length} \u6761\u5DF2\u4FEE\u6539\u8F66\u9053\uFF0C\u9EC4\u8272\u6570\u5B57\u5C31\u662F\u4FEE\u6539\u540E\u7684\u9650\u901F\uFF08\u5F53\u524D\u89C6\u91CE\u5185 ${t} \u6761\uFF09\u3002`:`\u5DF2\u53EA\u663E\u793A ${n.length} \u6761\u5DF2\u4FEE\u6539\u8F66\u9053\uFF08\u5F53\u524D\u89C6\u91CE\u5185 ${t} \u6761\uFF09\uFF1B\u7F29\u5C0F\u72B6\u6001\u4E0B\u6570\u503C\u653E\u4E0D\u4E0B\uFF0C\u8BF7\u7EE7\u7EED\u653E\u5927\uFF0C\u6216\u7528\u300C\u9010\u6761\u6838\u5BF9\u300D\u9010\u6761\u67E5\u770B\u3002`)}function _e(){let n=h.document;if(!n||h.busy)return;let e=n.lanes.filter(o=>h.edits.has(o.id));if(e.length===0){I(new S("\u8FD8\u6CA1\u6709\u4EFB\u4F55\u9650\u901F\u4FEE\u6539\uFF0C\u6CA1\u6709\u53EF\u4EE5\u9010\u6761\u6838\u5BF9\u7684\u8F66\u9053\u3002"));return}let t=e.map(o=>o.id),s=(t.indexOf(h.selectedID)+1)%t.length,r=e[s];H(r.id),p.focusLane(r),$(),T(`\u7B2C ${s+1} / ${t.length} \u6761\u5DF2\u4FEE\u6539\u8F66\u9053\uFF1ALanelet ${r.id} \xB7 ${F(r.direction)} \xB7 ${h.edits.get(r.id)??r.originalSpeed??"\u672A\u8BBE\u7F6E"} km/h\uFF08\u539F ${r.originalSpeed??"\u672A\u8BBE\u7F6E"}\uFF09\u3002\u518D\u70B9\u300C\u9010\u6761\u6838\u5BF9\u300D\u770B\u4E0B\u4E00\u6761\u3002`)}async function ut(){let n=h.document;if(!n||h.busy)return;let e=n.statistics(x.REVERSED);if(e.count===0){await I(new S("\u8FD9\u4EFD\u5730\u56FE\u91CC\u6CA1\u6709\u53CD\u5411\u5C42\u8F66\u9053\uFF08\u6CA1\u6709\u5DE6\u53F3\u8FB9\u754C\u4E0E\u884C\u9A76\u65B9\u5411\u5BF9\u8C03\u7684\u8F66\u9053\uFF09\u3002"));return}let t=n.statistics(x.FORWARD),i=n.reverseLayerPairs(),s=i.filter(c=>c.forward!==null&&c.overlap>=.5),r=c=>Object.entries(c).sort((u,f)=>f[1]-u[1]||u[0].localeCompare(f[0])).map(([u,f])=>`${u}: ${f} \u6761`).join("\uFF0C"),o=s.length>0?s.reduce((c,u)=>c+u.overlap,0)/s.length:0,l=`\u53CD\u5411\u5C42 ${e.count} \u6761\u8F66\u9053\uFF0C\u603B\u957F ${Math.round(e.length)} m\uFF08\u6B63\u5411\u5C42 ${t.count} \u6761 / ${Math.round(t.length)} m\uFF09
+
+\u9650\u901F\u5206\u5E03\uFF1A${r(e.speeds)}
+\u8F6C\u5411\u5206\u5E03\uFF1A${r(e.turns)}
+\u5DE6\u53F3\u8FB9\u754C\u65B9\u5411\u51B2\u7A81\uFF1A${e.conflicts} \u6761
+\u4E0E\u6B63\u5411\u5C42\u51E0\u4F55\u91CD\u5408\uFF1A${s.length} / ${i.length} \u6761\uFF0C\u5E73\u5747\u91CD\u5408\u5EA6 ${Math.round(o*100)}%
+
+\u53CD\u5411\u5C42\u7684\u5B9E\u9645\u884C\u9A76\u65B9\u5411\u4E0E\u5730\u56FE\u91CC\u5B58\u50A8\u7684\u70B9\u5E8F\u76F8\u53CD\uFF1B\u5BFC\u51FA CSV \u53EF\u4EE5\u67E5\u770B\u6BCF\u6761\u8F66\u9053\u7684\u5730\u56FE ID\u3001\u5B58\u50A8\u822A\u5411\u3001\u5B9E\u9645\u822A\u5411\u3001\u9650\u901F\u3001\u957F\u5EA6\u548C\u5BF9\u5E94\u7684\u6B63\u5411\u8F66\u9053\u3002`;await _("\u65B9\u5411\u5206\u5C42\u6570\u636E \xB7 \u53CD\u5411\u5C42",l,[{label:"\u5173\u95ED",value:0},{label:"\u5BFC\u51FA CSV\u2026",value:1,primary:!0}])===1&&await Ue()}function ze(n,e=new Map){if(!n)return null;let t=new Map;for(let s of n.reverseLayerPairs())s.forward&&t.set(s.reversed.id,{id:s.forward.id,overlap:s.overlap});let i=`lanelet_id,layer,stored_heading_deg,actual_heading_deg,stored_speed_kmh,current_speed_kmh,length_m,twin_forward_id,twin_overlap,bounds_conflict
+`;for(let s of n.lanes){let r=ft(s.centerline),o=s.handedness===x.REVERSED?r+180:r,l=t.get(s.id),a=[s.id,N(s.handedness),r.toFixed(1),o.toFixed(1),s.originalSpeed??"",e.get(s.id)??s.originalSpeed??"",s.centerlineLength.toFixed(2),l?.id??"",l?l.overlap.toFixed(2):"",s.boundsDisagree?"yes":"no"];i+=`${a.map(c=>String(c).includes(",")?`"${c}"`:c).join(",")}
+`}return i}function ft(n){if(n.length<2)return 0;let e=n[0],t=n[n.length-1];return Math.atan2(t.y-e.y,t.x-e.x)*180/Math.PI}async function Ue(){let n=ze(h.document,h.edits);if(!n)return;let e=(h.fileName??"lanelet2_map.osm").replace(/\.(osm|xml)$/i,"")+"_\u65B9\u5411\u5206\u5C42.csv";try{if(globalThis.lanespeed?.saveFile){let r=await globalThis.lanespeed.saveFile(e,n);r&&T(`\u5DF2\u5BFC\u51FA\u65B9\u5411\u5206\u5C42\u6570\u636E\uFF1A${r}\uFF08${h.document.lanes.length} \u6761\u8F66\u9053\uFF0C\u5730\u56FE\u672A\u6539\u52A8\uFF09`);return}let t=new Blob([n],{type:"text/csv;charset=utf-8"}),i=URL.createObjectURL(t),s=document.createElement("a");s.href=i,s.download=e,document.body.appendChild(s),s.click(),s.remove(),setTimeout(()=>URL.revokeObjectURL(i),1e4),T(`\u5DF2\u5BFC\u51FA\u65B9\u5411\u5206\u5C42\u6570\u636E\uFF1A${e}\uFF08${h.document.lanes.length} \u6761\u8F66\u9053\uFF0C\u5730\u56FE\u672A\u6539\u52A8\uFF09`)}catch(t){t?.name!=="AbortError"&&await I(t)}}function q(){let e=d("canvasWrap").getBoundingClientRect(),t=Math.max(1,Math.floor(e.width)),i=Math.max(1,Math.floor(e.height));V=globalThis.devicePixelRatio||1,R.width=Math.round(t*V),R.height=Math.round(i*V),R.style.width=`${t}px`,R.style.height=`${i}px`,p.setSize(t,i),$()}function $(){return Be.setTransform(V,0,0,V,0,0),p.render(Be)}function oe(n){let e=R.getBoundingClientRect();return{x:n.clientX-e.left,y:n.clientY-e.top}}function gt(){let n=!1,e=!1,t={x:0,y:0};R.addEventListener("mousedown",s=>{n=!0,e=!1,t=oe(s),R.style.cursor="grabbing"}),globalThis.addEventListener("mouseup",s=>{if(!n||(n=!1,R.style.cursor="crosshair",e))return;let r=oe(s);if(r.x<0||r.y<0||r.x>p.width||r.y>p.height)return;let o=p.laneAt(r);o&&H(o.id)}),R.addEventListener("mousemove",s=>{let r=oe(s);if(n){let l=r.x-t.x,a=r.y-t.y;(Math.abs(l)>1||Math.abs(a)>1)&&(e=!0),p.offsetX+=l,p.offsetY-=a,p.framing=null,t=r,$();return}let o=p.hoverID;p.handleHover(r),p.hoverID!==o&&$()}),R.addEventListener("mouseleave",()=>{p.clearHover(),$()}),R.addEventListener("wheel",s=>{s.preventDefault();let r=Math.exp(-s.deltaY*(s.deltaMode===0?.0016:.06));p.zoomBy(r,oe(s)),$()},{passive:!1});let i=d("canvasWrap");for(let[s,r]of[["dragenter",!0],["dragover",!0],["dragleave",!1],["drop",!1]])i.addEventListener(s,o=>{if(o.preventDefault(),d("dropzone").classList.toggle("active",r),s!=="drop")return;let l=o.dataTransfer?.files?.[0];l&&l.text().then(a=>j(a,l.name,null))})}function mt(){d("openButton").addEventListener("click",Pe),d("exportButton").addEventListener("click",Ye),d("undoButton").addEventListener("click",We);for(let n of["straight","left","right"])document.querySelector(`[data-apply="${n}"]`).addEventListener("click",()=>lt(n));d("applySingle").addEventListener("click",ht),d("focusSelected").addEventListener("click",()=>{let n=h.document?.lanes.find(e=>e.id===h.selectedID);n&&(p.focusLane(n),$())}),d("includeUnmarked").addEventListener("change",A),d("category").addEventListener("change",ae),d("search").addEventListener("input",ae),d("layerDataButton").addEventListener("click",ut),d("reviewButton").addEventListener("click",Ne),d("reviewNextButton").addEventListener("click",_e),d("layerPopup").addEventListener("change",()=>{p.layerFilter=d("layerPopup").value,A(),$()}),d("separateLayers").addEventListener("change",()=>{p.separateLayers=d("separateLayers").checked,$()}),d("layerOnly").addEventListener("change",()=>{T(d("layerOnly").checked?`\u6279\u91CF\u6539\u901F\u5C06\u53EA\u4F5C\u7528\u4E8E${d("layerPopup").selectedOptions[0].textContent}\u3002`:"\u6279\u91CF\u6539\u901F\u4F5C\u7528\u4E8E\u5168\u90E8\u8F66\u9053\u3002")});for(let[n,e]of[["toggleSpeed","showSpeed"],["toggleDirection","showDirection"],["toggleFill","showFill"],["toggleGrid","showGrid"],["toggleOnlyChanged","onlyChanged"]])d(n).addEventListener("change",()=>{p[e]=d(n).checked,$()});d("fitButton").addEventListener("click",()=>{p.fit(),$(),T("\u5DF2\u663E\u793A\u5168\u90E8\u8F66\u9053\uFF0C\u5E76\u653E\u5927\u5230\u94FA\u6EE1\u7A97\u53E3\uFF1B\u9700\u8981\u66F4\u5927\u65F6\u70B9\u300C\u5730\u56FE\u6700\u5927\u5316\u300D\u3002")}),d("zoomInButton").addEventListener("click",()=>{p.zoomAroundCentre(1.35),$()}),d("zoomOutButton").addEventListener("click",()=>{p.zoomAroundCentre(1/1.35),$()}),d("maxButton").addEventListener("click",()=>{h.maximised=!h.maximised,document.getElementById("app").classList.toggle("mapless",h.maximised),d("maxButton").textContent=h.maximised?"\u6062\u590D\u5217\u8868":"\u5730\u56FE\u6700\u5927\u5316",requestAnimationFrame(()=>{q(),p.fit(),$(),T(h.maximised?"\u5730\u56FE\u5DF2\u6700\u5927\u5316\uFF1B\u70B9\u300C\u663E\u793A\u5168\u90E8\u300D\u53EF\u8BA9\u8F66\u9053\u94FA\u6EE1\u6574\u4E2A\u7A97\u53E3\u3002":"\u5DF2\u6062\u590D\u4FA7\u680F\u4E0E\u8F66\u9053\u5217\u8868\u3002")})}),globalThis.addEventListener("keydown",n=>{if(!(n.metaKey||n.ctrlKey))return;let t=n.key.toLowerCase();t==="o"?(n.preventDefault(),Pe()):t==="s"?(n.preventDefault(),Ye()):t==="z"?(n.preventDefault(),We()):t==="0"?(n.preventDefault(),d("fitButton").click()):t==="="||t==="+"?(n.preventDefault(),d("zoomInButton").click()):t==="-"?(n.preventDefault(),d("zoomOutButton").click()):t==="r"?(n.preventDefault(),n.shiftKey?_e():Ne()):t==="m"&&n.shiftKey&&(n.preventDefault(),d("maxButton").click())}),globalThis.addEventListener("resize",q),globalThis.ResizeObserver&&new ResizeObserver(q).observe(d("canvasWrap"))}mt();gt();A();q();globalThis.lanespeedApp={state:h,view:p,load:j,refresh:A,selectLane:H,commit:Ce,exportLayerCSV:Ue,layerCSV:ze,redraw:$};})();
+
+</script>
+</body>
+</html>
