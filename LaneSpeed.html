@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  LaneSpeed 2.0.1 · Lanelet2 / Autoware 地图限速编辑器
+  LaneSpeed 2.0.2 · Lanelet2 / Autoware 地图限速编辑器
   单个文件、离线运行：所有处理都在本机完成，不会联网、不会上传地图。
   Copyright (c) 2026. All rights reserved. 专有软件：可免费使用，禁止再分发或修改。
 -->
@@ -11,6 +11,9 @@
 <title>LaneSpeed · Lanelet2 限速编辑器</title>
 <style>
 :root {
+  color-scheme: dark;
+
+  /* 界面外壳（跟随系统浅色/深色） */
   --bg: #0b0f14;
   --panel: #131a22;
   --panel-2: #18212b;
@@ -18,6 +21,22 @@
   --text: #e8eef5;
   --muted: #93a2b3;
   --accent: #3d9df6;
+  --accent-ink: #04121f;
+  --field: #0f151d;
+  --hover-bg: #1d2833;
+  --hover-line: #35485c;
+  --row-alt: #101821;
+  --row-sel: #1d3350;
+  --grid: #1b242e;
+  --overlay: rgba(4, 8, 12, .68);
+  --danger: #ff8080;
+
+  /* 地图区域固定深色，两套主题一致（与原生版 #111821 对齐） */
+  --map-bg: #111821;
+  --overlay-text: #e8eef5;
+  --overlay-muted: #93a2b3;
+
+  /* 数据配色，两套主题一致 */
   --straight: #14a3a3;
   --left: #f59e2b;
   --right: #756df0;
@@ -25,6 +44,30 @@
   --changed: #ffcc00;
   --pink: #ff2d55;
   --radius: 8px;
+}
+
+/* 浅色模式：外壳跟随系统变成浅色，地图区域仍为深色 */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --panel-2: #f7f9fb;
+    --line: #d7dee7;
+    --text: #1b2430;
+    --muted: #5f6d7c;
+    --accent: #1565c0;
+    --accent-ink: #ffffff;
+    --field: #ffffff;
+    --hover-bg: #eef2f7;
+    --hover-line: #b9c6d6;
+    --row-alt: #f7f9fc;
+    --row-sel: #dbe9fb;
+    --grid: #e4e9ef;
+    --overlay: rgba(15, 22, 30, .38);
+    --danger: #c62828;
+    --pink: #d81b48;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -61,14 +104,14 @@ html, body {
   padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 12.5px;
 }
-.btn:hover:not(:disabled) { border-color: #35485c; background: #1d2833; }
+.btn:hover:not(:disabled) { border-color: var(--hover-line); background: var(--hover-bg); }
 .btn:disabled { opacity: .45; cursor: default; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #04121f; font-weight: 600; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .btn.primary:disabled { background: var(--panel-2); border-color: var(--line); color: var(--text); }
 .btn.small { padding: 4px 9px; font-size: 12px; }
 input[type=text], input[type=search], select {
   padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
-  background: #0f151d; color: var(--text); font: inherit; font-size: 12.5px;
+  background: var(--field); color: var(--text); font: inherit; font-size: 12.5px;
 }
 input:disabled, select:disabled { opacity: .5; }
 input[type=checkbox] { accent-color: var(--accent); }
@@ -86,9 +129,9 @@ input[type=checkbox] { accent-color: var(--accent); }
 .panel { margin-bottom: 18px; }
 .panel h2 { margin: 0 0 6px; font-size: 14.5px; }
 .hint { margin: 4px 0; font-size: 11.5px; color: var(--muted); }
-.hint code { background: #0f151d; padding: 0 3px; border-radius: 3px; }
+.hint code { background: var(--field); padding: 0 3px; border-radius: 3px; }
 .stats {
-  margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: #0f151d;
+  margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: var(--field);
   font: 11.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
   white-space: pre-wrap;
 }
@@ -114,13 +157,13 @@ input[type=checkbox] { accent-color: var(--accent); }
   border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted);
 }
 .legend { display: inline-flex; align-items: center; gap: 5px; }
-.canvaswrap { position: relative; flex: 1; min-height: 180px; background: #111821; }
+.canvaswrap { position: relative; flex: 1; min-height: 180px; background: var(--map-bg); }
 #mapCanvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 .dropzone {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  text-align: center; color: var(--muted); pointer-events: none;
+  text-align: center; color: var(--overlay-muted); pointer-events: none;
 }
-.dropzone b { font-size: 20px; color: var(--text); display: block; margin-bottom: 6px; }
+.dropzone b { font-size: 20px; color: var(--overlay-text); display: block; margin-bottom: 6px; }
 .dropzone.active { outline: 3px solid var(--accent); outline-offset: -3px; }
 .hintrow, .filterrow {
   display: flex; align-items: center; gap: 10px; padding: 7px 12px;
@@ -133,24 +176,24 @@ input[type=checkbox] { accent-color: var(--accent); }
 /* table */
 .tablerow { height: 190px; overflow: auto; border-top: 1px solid var(--line); }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th, td { text-align: left; padding: 5px 10px; border-bottom: 1px solid #1b242e; white-space: nowrap; }
+th, td { text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; z-index: 1; }
 tbody tr { cursor: pointer; }
-tbody tr:nth-child(even) { background: #101821; }
-tbody tr.selected { background: #1d3350; }
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr.selected { background: var(--row-sel); }
 td.id, td.num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 td.layer.forward { color: var(--muted); }
 td.layer.reversed { color: var(--pink); }
 td.changed { color: var(--accent); font-weight: 600; }
 
 .statusbar { padding: 8px 14px; border-top: 1px solid var(--line); background: var(--panel); font-size: 11.5px; color: var(--muted); }
-.statusbar.error span { color: #ff8080; }
+.statusbar.error span { color: var(--danger); }
 
 /* maximised map */
 #app.mapless .sidebar, #app.mapless .hintrow, #app.mapless .filterrow, #app.mapless .tablerow { display: none; }
 
 /* modal */
-.modal { position: fixed; inset: 0; background: rgba(4, 8, 12, .68); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.modal { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 20; }
 .modal[hidden] { display: none; }
 .modalbox {
   width: min(680px, 92vw); max-height: 82vh; overflow: auto;
@@ -177,7 +220,7 @@ td.changed { color: var(--accent); font-weight: 600; }
       </svg>
       <div>
         <h1>LaneSpeed</h1>
-        <p class="subtitle">LANELET2 限速编辑器 · v2.0.1</p>
+        <p class="subtitle">LANELET2 限速编辑器 · v2.0.2</p>
       </div>
     </div>
     <div class="fileinfo">
